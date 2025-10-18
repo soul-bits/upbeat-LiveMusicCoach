@@ -36,12 +36,6 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const [streamInterval, setStreamInterval] = useState(2000);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [sessionDuration, setSessionDuration] = useState(0);
-  const [notesPlayed, setNotesPlayed] = useState(0);
-  const [mistakes, setMistakes] = useState<Array<{
-    finger: string;
-    timestamp: number;
-    note: string;
-  }>>([]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -469,8 +463,6 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
       const now = new Date();
       setSessionStartTime(now);
       setSessionDuration(0);
-      setNotesPlayed(0);
-      setMistakes([]);
 
       // Start audio capture
       setTimeout(() => startAudioCapture(), 500);
@@ -574,36 +566,6 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
     sendMessage(`I want to learn how to play "${song}" on piano. Please teach me step by step.`);
   };
 
-  // Simulate piano playing during session
-  const simulatePianoPlaying = () => {
-    if (!isStreaming) return;
-    
-    // Simulate notes being played
-    setNotesPlayed(prev => prev + 1);
-    
-    // Occasionally add mistakes (10% chance)
-    if (Math.random() < 0.1) {
-      const fingers = ['thumb', 'index', 'middle', 'ring', 'pinky'];
-      const notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-      const mistake = {
-        finger: fingers[Math.floor(Math.random() * fingers.length)],
-        timestamp: sessionDuration,
-        note: notes[Math.floor(Math.random() * notes.length)]
-      };
-      setMistakes(prev => [...prev, mistake]);
-    }
-  };
-
-  // Simulate piano playing every few seconds
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isStreaming) {
-      interval = setInterval(simulatePianoPlaying, 3000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isStreaming, sessionDuration]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 p-6">
@@ -753,14 +715,6 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                       </span>
                     </div>
                   )}
-                  
-                  {notesPlayed > 0 && (
-                    <div className="bg-blue-600 px-3 py-1 rounded-full shadow-lg">
-                      <span className="text-white text-xs">
-                        Notes: {notesPlayed}
-                      </span>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -771,12 +725,12 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                 onClick={isStreaming ? () => {
                   stopStreaming();
                   if (onEndSession) {
-                    const accuracy = notesPlayed > 0 ? Math.max(60, Math.min(100, 100 - (mistakes.length / notesPlayed) * 100)) : 85;
+                    // Only pass the real session duration - agent will provide other data
                     onEndSession({
                       duration: sessionDuration,
-                      accuracy: Math.round(accuracy),
-                      notesPlayed,
-                      mistakes
+                      accuracy: 0, // Will be provided by agent
+                      notesPlayed: 0, // Will be provided by agent
+                      mistakes: [] // Will be provided by agent
                     });
                   }
                 } : startStreaming}
