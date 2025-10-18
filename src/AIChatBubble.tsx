@@ -6,6 +6,7 @@ import {
   XCircle,
   Bot
 } from "lucide-react";
+import { marked } from 'marked';
 import { chatService, VectaraQueryResult } from './chatService';
 
 interface SessionSummaryType {
@@ -33,11 +34,22 @@ interface AIChatBubbleProps {
 
 export function AIChatBubble({ summary }: AIChatBubbleProps) {
   const [isChatOpen, setIsChatOpen] = React.useState(false);
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    
+    const parts = [];
+    if (mins > 0) parts.push(`${mins} minute${mins !== 1 ? 's' : ''}`);
+    if (secs > 0) parts.push(`${secs} second${secs !== 1 ? 's' : ''}`);
+    
+    return parts.length > 0 ? parts.join(' and ') : '0 seconds';
+  };
+
   const [chatMessages, setChatMessages] = React.useState<ChatMessage[]>([
     {
       id: '1',
       role: 'assistant',
-      content: `Hi! I'm Melody, your AI piano coach assistant. I've analyzed your ${Math.floor(summary.duration / 60)}-minute practice session and I'm here to help you understand your performance and answer any questions you might have! 🎹`,
+      content: `Hi! I'm Melody, your AI piano coach assistant. I've analyzed your ${formatDuration(summary.duration)} practice session and I'm here to help you understand your performance and answer any questions you might have! 🎹`,
       timestamp: new Date()
     }
   ]);
@@ -137,7 +149,12 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
                       : 'bg-white/10 text-white border border-white/20'
                   }`}
                 >
-                  <p>{message.content}</p>
+                  <div 
+                    className="prose prose-sm max-w-none [&_strong]:text-white [&_em]:text-purple-200 [&_ul]:text-purple-200 [&_li]:text-purple-200 [&_p]:text-white [&_*]:text-white"
+                    dangerouslySetInnerHTML={{ 
+                      __html: marked(message.content, { breaks: true })
+                    }}
+                  />
                   <p className={`text-xs mt-1 ${
                     message.role === 'user' ? 'text-purple-200' : 'text-purple-300'
                   }`}>
