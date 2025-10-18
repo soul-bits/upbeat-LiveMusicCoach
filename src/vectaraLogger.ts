@@ -84,12 +84,10 @@ class VectaraLogger {
 
     this.conversationEntries.push(entry);
 
-    console.log(`🤖 [Vectara] AI response received: "${response.substring(0, 100)}${response.length > 100 ? '...' : ''}"`);
-    console.log(`🔗 [Vectara] Pairing with user action: "${this.pendingUserAction?.substring(0, 100) || 'NONE'}"`);
-    console.log(`📝 [Vectara] Total entries in session: ${this.conversationEntries.length}`);
+    // Reduced logging - only log essential info
+    console.log(`🤖 [Vectara] AI response logged (${this.conversationEntries.length} entries)`);
 
     // Upload after each AI response to ensure data is saved
-    console.log(`📤 [Vectara] Uploading session (${this.conversationEntries.length} entries)`);
     this.uploadFullSession();
 
     // Clear pending user action
@@ -256,14 +254,7 @@ class VectaraLogger {
    * Upload entire session as a single document (batch upload - called on component unmount)
    */
   async uploadFullSession(): Promise<void> {
-    console.log('\n' + '='.repeat(80));
-    console.log('📤 [Vectara] UPLOADING FULL SESSION TO VECTARA');
-    console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log('📝 Total conversation entries:', this.conversationEntries.length);
-    console.log('='.repeat(80) + '\n');
-
     if (this.conversationEntries.length === 0) {
-      console.log('⚠️ [Vectara] No entries to upload');
       return;
     }
 
@@ -308,7 +299,7 @@ class VectaraLogger {
         }
       };
 
-      console.log('📤 [Vectara] Uploading full session:', JSON.stringify(payload, null, 2));
+      // Upload session data silently
 
       const response = await fetch('https://api.vectara.io/v1/index', {
         method: 'POST',
@@ -322,11 +313,10 @@ class VectaraLogger {
 
       if (response.ok) {
         const result = await response.json();
-        console.log(`✅ [Vectara] Full session uploaded (${this.conversationEntries.length} entries). Response:`, result);
+        console.log(`✅ [Vectara] Session uploaded successfully (${this.conversationEntries.length} entries)`);
       } else {
         const errorText = await response.text();
-        console.error('❌ [Vectara] Full session upload failed:', response.status, errorText);
-        console.error('Failed payload was:', JSON.stringify(payload, null, 2));
+        console.error('❌ [Vectara] Upload failed:', response.status, errorText);
       }
     } catch (error) {
       console.error('❌ [Vectara] Full session upload error:', error);
