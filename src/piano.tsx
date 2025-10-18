@@ -7,7 +7,20 @@ interface Message {
   timestamp: Date;
 }
 
-const PianoTutor: React.FC = () => {
+interface PianoTutorProps {
+  onEndSession?: (sessionData: {
+    duration: number;
+    accuracy: number;
+    notesPlayed: number;
+    mistakes: Array<{
+      finger: string;
+      timestamp: number;
+      note: string;
+    }>;
+  }) => void;
+}
+
+const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -20,6 +33,14 @@ const PianoTutor: React.FC = () => {
   const [frameCaptured, setFrameCaptured] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [streamInterval, setStreamInterval] = useState(2000);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [sessionDuration, setSessionDuration] = useState(0);
+  const [notesPlayed, setNotesPlayed] = useState(0);
+  const [mistakes, setMistakes] = useState<Array<{
+    finger: string;
+    timestamp: number;
+    note: string;
+  }>>([]);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,6 +58,21 @@ const PianoTutor: React.FC = () => {
       disconnectWebSocket();
     };
   }, []);
+
+  // Session duration timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (sessionStartTime && isStreaming) {
+      interval = setInterval(() => {
+        const now = new Date();
+        const duration = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000);
+        setSessionDuration(duration);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [sessionStartTime, isStreaming]);
 
   const connectToGemini = () => {
     if (!apiKey) {
@@ -421,6 +457,13 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
 
       setIsStreaming(true);
       setFramesSent(0);
+      
+      // Initialize session timing
+      const now = new Date();
+      setSessionStartTime(now);
+      setSessionDuration(0);
+      setNotesPlayed(0);
+      setMistakes([]);
 
       // Start audio capture
       setTimeout(() => startAudioCapture(), 500);
@@ -516,6 +559,37 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
   const quickSongRequest = (song: string) => {
     sendMessage(`I want to learn how to play "${song}" on piano. Please teach me step by step.`);
   };
+
+  // Simulate piano playing during session
+  const simulatePianoPlaying = () => {
+    if (!isStreaming) return;
+    
+    // Simulate notes being played
+    setNotesPlayed(prev => prev + 1);
+    
+    // Occasionally add mistakes (10% chance)
+    if (Math.random() < 0.1) {
+      const fingers = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+      const notes = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+      const mistake = {
+        finger: fingers[Math.floor(Math.random() * fingers.length)],
+        timestamp: sessionDuration,
+        note: notes[Math.floor(Math.random() * notes.length)]
+      };
+      setMistakes(prev => [...prev, mistake]);
+    }
+  };
+
+  // Simulate piano playing every few seconds
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isStreaming) {
+      interval = setInterval(simulatePianoPlaying, 3000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isStreaming, sessionDuration]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 p-6">
@@ -657,6 +731,22 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                       <span className="text-white text-xs">Last: {lastFrameTime}</span>
                     </div>
                   )}
+                  
+                  {sessionDuration > 0 && (
+                    <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
+                      <span className="text-white text-xs">
+                        Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {notesPlayed > 0 && (
+                    <div className="bg-blue-600 px-3 py-1 rounded-full shadow-lg">
+                      <span className="text-white text-xs">
+                        Notes: {notesPlayed}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -664,7 +754,18 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
             {/* Controls */}
             <div className="space-y-3">
               <button
-                onClick={isStreaming ? stopStreaming : startStreaming}
+                onClick={isStreaming ? () => {
+                  stopStreaming();
+                  if (onEndSession) {
+                    const accuracy = notesPlayed > 0 ? Math.max(60, Math.min(100, 100 - (mistakes.length / notesPlayed) * 100)) : 85;
+                    onEndSession({
+                      duration: sessionDuration,
+                      accuracy: Math.round(accuracy),
+                      notesPlayed,
+                      mistakes
+                    });
+                  }
+                } : startStreaming}
                 disabled={!isConnected}
                 className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-medium transition-all text-lg ${
                   isStreaming
@@ -675,7 +776,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                 {isStreaming ? (
                   <>
                     <Square className="w-6 h-6" />
-                    End Lesson
+                    End Session
                   </>
                 ) : (
                   <>
@@ -720,6 +821,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                   </div>
                 </div>
               )}
+
             </div>
           </div>
 
