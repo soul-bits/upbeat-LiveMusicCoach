@@ -12,7 +12,7 @@ type StreamMode = 'on-demand' | 'continuous' | 'music-coach';
 const GeminiLiveVideoInteracter: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [apiKey, setApiKey] = useState('');
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
   const [isConnected, setIsConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Not connected');
   const [currentResponse, setCurrentResponse] = useState('');
@@ -551,20 +551,18 @@ Keep responses conversational and encouraging, like a friendly music teacher.`;
           </p>
         </div>
 
-        {/* API Connection */}
+        {/* Connection Status */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-2xl border border-white/20">
-          <label className="block text-white text-sm font-medium mb-3">
-            Gemini API Key
-          </label>
-          <div className="flex gap-3">
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your API key from ai.google.dev"
-              className="flex-1 px-4 py-3 bg-white/20 backdrop-blur text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-white/50"
-              disabled={isConnected}
-            />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
+              <div>
+                <p className="text-white font-medium">Connection Status</p>
+                <p className={`text-sm ${isConnected ? 'text-green-400' : 'text-gray-400'}`}>
+                  {statusMessage}
+                </p>
+              </div>
+            </div>
             <button
               onClick={isConnected ? disconnectWebSocket : connectToGemini}
               className={`px-6 py-3 rounded-lg font-medium transition-all ${
@@ -576,30 +574,11 @@ Keep responses conversational and encouraging, like a friendly music teacher.`;
               {isConnected ? 'Disconnect' : 'Connect'}
             </button>
           </div>
-          <div className="mt-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`} />
-              <p className={`text-sm ${isConnected ? 'text-green-400' : 'text-gray-400'}`}>
-                {statusMessage}
-              </p>
-            </div>
-            {isStreaming && (
+          {isStreaming && (
+            <div className="mt-3 pt-3 border-t border-white/10">
               <p className="text-sm text-purple-300">
                 📸 Frames sent: {framesSent}
               </p>
-            )}
-          </div>
-
-          {!isConnected && apiKey && (
-            <div className="mt-3 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-              <p className="text-yellow-200 text-sm">
-                <strong>Troubleshooting:</strong>
-              </p>
-              <ul className="text-yellow-200/80 text-xs mt-1 space-y-1">
-                <li>• Open browser console (F12) to see detailed error logs</li>
-                <li>• Verify your API key is correct</li>
-                <li>• Live API may have limited quota for experimental models</li>
-              </ul>
             </div>
           )}
         </div>

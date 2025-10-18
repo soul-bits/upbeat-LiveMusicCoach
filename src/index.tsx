@@ -13,7 +13,7 @@ interface Message {
 const GeminiVideoInteracter: React.FC = () => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [apiKey, setApiKey] = useState('');
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
   const [textInput, setTextInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [captureInterval, setCaptureInterval] = useState(3000); // 3 seconds
@@ -265,21 +265,6 @@ const GeminiVideoInteracter: React.FC = () => {
           </button>
         </div>
 
-        {/* API Key */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 mb-6 shadow-2xl border border-white/20">
-          <label className="block text-white text-sm font-medium mb-2">
-            Gemini API Key
-          </label>
-          <div className="flex gap-3">
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your Gemini API key (get it from ai.google.dev)"
-              className="flex-1 px-4 py-2 bg-white/20 backdrop-blur text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 placeholder-white/50"
-            />
-          </div>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Video Section */}
@@ -447,7 +432,6 @@ const GeminiVideoInteracter: React.FC = () => {
         <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-xl p-4 shadow-2xl border border-white/20">
           <h3 className="text-lg font-semibold text-white mb-2">How to use:</h3>
           <ul className="text-white/80 text-sm space-y-1">
-            <li>• Get your free API key from <a href="https://ai.google.dev" target="_blank" rel="noopener" className="text-pink-300 hover:underline">ai.google.dev</a></li>
             <li>• Start the camera to begin capturing video frames</li>
             <li>• Frames are automatically sent to Gemini at the set interval</li>
             <li>• Click "Snapshot" to capture and analyze the current frame with your custom question</li>
