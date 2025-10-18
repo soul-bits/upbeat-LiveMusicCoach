@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import GeminiLiveVideoInteracter from './video';
+import PianoTutor from './piano';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -8,6 +8,6 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <GeminiLiveVideoInteracter />
+    <PianoTutor />
   </React.StrictMode>
 );

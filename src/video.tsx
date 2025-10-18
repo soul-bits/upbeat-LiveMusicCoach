@@ -7,7 +7,7 @@ interface Message {
   timestamp: Date;
 }
 
-type StreamMode = 'on-demand' | 'continuous';
+type StreamMode = 'on-demand' | 'continuous' | 'music-coach';
 
 const GeminiLiveVideoInteracter: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
@@ -72,7 +72,35 @@ const GeminiLiveVideoInteracter: React.FC = () => {
         console.log('✅ WebSocket connected successfully!');
         setStatusMessage('Connected! Sending setup...');
         
-        // Send initial setup message with system instruction for continuous mode
+        // Send initial setup message with system instruction
+        let systemInstructionText = "You are a helpful AI assistant that can see video and hear audio. When you receive video frames and audio, describe what you see and respond to what you hear in a natural, conversational way. Focus on the most interesting or important elements. Keep responses concise but informative.";
+        
+        if (streamMode === 'music-coach') {
+          systemInstructionText = `You are an expert music instructor and vocal/instrumental coach. You have perfect pitch and deep knowledge of music theory, technique, and performance.
+
+Your role is to:
+- Listen carefully to the musical notes, melodies, rhythms, and tones being played or sung
+- Identify the pitch accuracy (are notes sharp, flat, or on-key?)
+- Analyze timing, rhythm, and tempo
+- Evaluate tone quality, timbre, and dynamics
+- Recognize the musical instrument being played or if someone is singing
+- Detect any mistakes or areas for improvement
+- Provide constructive, encouraging feedback
+- Suggest specific techniques to improve (e.g., "Try using more diaphragm support", "Bend your wrist slightly when playing that note", "You're rushing the tempo a bit")
+- Offer praise when something is done well
+- Give actionable advice that a musician can immediately apply
+
+Be supportive, constructive, and specific. Instead of just saying "good job", explain WHAT was good. Instead of just "that was wrong", explain WHAT to adjust and HOW to fix it.
+
+Examples of good feedback:
+- "That A note was slightly flat. Try supporting more from your diaphragm to hit it cleanly."
+- "Great job on the rhythm! Your timing is excellent. Now let's work on making the tone a bit warmer."
+- "I can hear you're playing a guitar. That chord transition was smooth, but the G string might need tuning - it sounds a bit sharp."
+- "Your vibrato is coming along nicely! Try making it slightly slower and more controlled for a more mature sound."
+
+Keep responses conversational and encouraging, like a friendly music teacher.`;
+        }
+        
         const setupMessage = {
           setup: {
             model: "models/gemini-2.0-flash-exp",
@@ -82,7 +110,7 @@ const GeminiLiveVideoInteracter: React.FC = () => {
             },
             systemInstruction: {
               parts: [{
-                text: "You are a helpful AI assistant that can see video and hear audio. When you receive video frames and audio, describe what you see and respond to what you hear in a natural, conversational way. Focus on the most interesting or important elements. Keep responses concise but informative."
+                text: systemInstructionText
               }]
             }
           }
@@ -422,16 +450,25 @@ const GeminiLiveVideoInteracter: React.FC = () => {
       setIsStreaming(true);
       setFramesSent(0);
 
-      // Start audio capture if enabled
-      if (audioEnabled) {
+      // Start audio capture if enabled (always on for music-coach mode)
+      if (audioEnabled || streamMode === 'music-coach') {
         setTimeout(() => startAudioCapture(), 500);
       }
 
-      if (streamMode === 'continuous') {
+      if (streamMode === 'continuous' || streamMode === 'music-coach') {
         // Start continuous streaming
-        setStatusMessage(audioEnabled 
-          ? 'Streaming video + audio - AI can see and hear you!' 
-          : 'Streaming video continuously - AI will describe what it sees');
+        let statusText = 'Streaming video continuously - AI will describe what it sees';
+        let initialPrompt = 'Please describe what you see in the video stream. Continue to describe any changes or interesting things you notice.';
+        
+        if (streamMode === 'music-coach') {
+          statusText = '🎵 Music Coach Active - Play or sing, I\'m listening!';
+          initialPrompt = 'I am your music coach. I will listen to you play or sing. Please provide feedback on my pitch, rhythm, tone, and technique. Suggest specific improvements.';
+        } else if (audioEnabled) {
+          statusText = 'Streaming video + audio - AI can see and hear you!';
+          initialPrompt = 'I will show you video and speak to you. Please respond to what you see and hear.';
+        }
+        
+        setStatusMessage(statusText);
         
         // Send initial prompt to start continuous description
         setTimeout(() => {
@@ -441,9 +478,7 @@ const GeminiLiveVideoInteracter: React.FC = () => {
                 turns: [{
                   role: 'user',
                   parts: [{
-                    text: audioEnabled 
-                      ? 'I will show you video and speak to you. Please respond to what you see and hear.'
-                      : 'Please describe what you see in the video stream. Continue to describe any changes or interesting things you notice.'
+                    text: initialPrompt
                   }]
                 }],
                 turnComplete: true
@@ -453,10 +488,11 @@ const GeminiLiveVideoInteracter: React.FC = () => {
           }
         }, 500);
 
-        // Start sending frames at intervals
+        // Start sending frames at intervals (less frequent for music mode)
+        const frameRate = streamMode === 'music-coach' ? 5000 : streamInterval;
         frameIntervalRef.current = setInterval(() => {
           sendRealtimeFrame();
-        }, streamInterval);
+        }, frameRate);
       } else {
         setStatusMessage(audioEnabled 
           ? 'Camera + mic ready - I can see and hear you!'
@@ -506,9 +542,13 @@ const GeminiLiveVideoInteracter: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-white mb-2">
-            Gemini Live Vision
+            Gemini Live Vision {streamMode === 'music-coach' && '🎵'}
           </h1>
-          <p className="text-purple-300">Real-time video understanding with AI</p>
+          <p className="text-purple-300">
+            {streamMode === 'music-coach' 
+              ? 'Your AI Music Coach - Expert feedback on every note' 
+              : 'Real-time video understanding with AI'}
+          </p>
         </div>
 
         {/* API Connection */}
@@ -568,31 +608,38 @@ const GeminiLiveVideoInteracter: React.FC = () => {
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-2xl border border-white/20">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-semibold">Stream Mode</h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setAudioEnabled(!audioEnabled)}
-                disabled={isStreaming}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                  audioEnabled 
-                    ? 'bg-green-600 hover:bg-green-700' 
-                    : 'bg-gray-600 hover:bg-gray-700'
-                } ${isStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {audioEnabled ? (
-                  <>
-                    <Mic className="w-4 h-4 text-white" />
-                    <span className="text-white text-sm font-medium">Audio ON</span>
-                  </>
-                ) : (
-                  <>
-                    <MicOff className="w-4 h-4 text-white" />
-                    <span className="text-white text-sm font-medium">Audio OFF</span>
-                  </>
-                )}
-              </button>
-            </div>
+            {streamMode !== 'music-coach' && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAudioEnabled(!audioEnabled)}
+                  disabled={isStreaming}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                    audioEnabled 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-gray-600 hover:bg-gray-700'
+                  } ${isStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {audioEnabled ? (
+                    <>
+                      <Mic className="w-4 h-4 text-white" />
+                      <span className="text-white text-sm font-medium">Audio ON</span>
+                    </>
+                  ) : (
+                    <>
+                      <MicOff className="w-4 h-4 text-white" />
+                      <span className="text-white text-sm font-medium">Audio OFF</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            {streamMode === 'music-coach' && (
+              <div className="bg-yellow-600 px-4 py-2 rounded-lg">
+                <span className="text-white text-sm font-medium">🎤 Audio Always ON</span>
+              </div>
+            )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <button
               onClick={() => {
                 if (isStreaming) {
@@ -609,10 +656,10 @@ const GeminiLiveVideoInteracter: React.FC = () => {
             >
               <div className="flex items-center gap-3 mb-2">
                 <Eye className="w-5 h-5 text-purple-400" />
-                <span className="text-white font-medium">On-Demand Mode</span>
+                <span className="text-white font-medium">On-Demand</span>
               </div>
               <p className="text-sm text-white/70">
-                Capture frame only when you ask questions. {audioEnabled ? 'Speak or type your questions.' : 'Type your questions.'}
+                Capture frame only when you ask questions. {audioEnabled ? 'Speak or type.' : 'Type questions.'}
               </p>
             </button>
 
@@ -632,12 +679,36 @@ const GeminiLiveVideoInteracter: React.FC = () => {
             >
               <div className="flex items-center gap-3 mb-2">
                 <Radio className="w-5 h-5 text-pink-400" />
-                <span className="text-white font-medium">Continuous Stream</span>
+                <span className="text-white font-medium">Continuous</span>
               </div>
               <p className="text-sm text-white/70">
                 {audioEnabled 
-                  ? 'AI sees video and hears audio continuously. Natural conversation!' 
-                  : 'AI describes video automatically. Frames sent at intervals.'}
+                  ? 'AI sees video and hears audio continuously.' 
+                  : 'AI describes video automatically.'}
+              </p>
+            </button>
+
+            <button
+              onClick={() => {
+                if (isStreaming) {
+                  stopStreaming();
+                }
+                setStreamMode('music-coach');
+                setAudioEnabled(true);
+              }}
+              disabled={isStreaming}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                streamMode === 'music-coach'
+                  ? 'border-yellow-500 bg-yellow-500/20'
+                  : 'border-white/20 bg-white/5 hover:bg-white/10'
+              } ${isStreaming ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Mic className="w-5 h-5 text-yellow-400" />
+                <span className="text-white font-medium">🎵 Music Coach</span>
+              </div>
+              <p className="text-sm text-white/70">
+                Expert musical feedback. Sing or play - get real-time advice!
               </p>
             </button>
           </div>
@@ -659,6 +730,19 @@ const GeminiLiveVideoInteracter: React.FC = () => {
               />
               <p className="text-white/70 text-xs mt-1">
                 {isStreaming ? 'Stop streaming to adjust interval' : `Sends ${1000/streamInterval} frames per second`}
+              </p>
+            </div>
+          )}
+
+          {streamMode === 'music-coach' && (
+            <div className="mt-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+              <p className="text-yellow-200 text-sm font-medium mb-2">🎵 Music Coach Mode Active</p>
+              <p className="text-yellow-200/80 text-xs">
+                • Play any instrument or sing<br/>
+                • Gemini analyzes pitch, rhythm, tone, and technique<br/>
+                • Get real-time constructive feedback<br/>
+                • Audio quality optimized for musical notes<br/>
+                • Frames sent every 5 seconds (audio focus)
               </p>
             </div>
           )}
@@ -693,15 +777,17 @@ const GeminiLiveVideoInteracter: React.FC = () => {
                 <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
                   <div className="flex flex-col gap-2">
                     <div className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg ${
+                      streamMode === 'music-coach' ? 'bg-yellow-600' :
                       streamMode === 'continuous' ? 'bg-pink-600' : 'bg-green-600'
                     }`}>
                       <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
                       <span className="text-white text-sm font-bold">
-                        {streamMode === 'continuous' ? 'LIVE STREAM' : 'READY'}
+                        {streamMode === 'music-coach' ? '🎵 COACH' :
+                         streamMode === 'continuous' ? 'LIVE STREAM' : 'READY'}
                       </span>
                     </div>
                     
-                    {audioEnabled && (
+                    {(audioEnabled || streamMode === 'music-coach') && (
                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
                         isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
                       }`}>
@@ -736,12 +822,13 @@ const GeminiLiveVideoInteracter: React.FC = () => {
                 {isStreaming ? (
                   <>
                     <Square className="w-6 h-6" />
-                    Stop Camera
+                    Stop {streamMode === 'music-coach' ? 'Practice' : 'Camera'}
                   </>
                 ) : (
                   <>
                     <Video className="w-6 h-6" />
-                    Start {streamMode === 'continuous' ? 'Live Stream' : 'Camera'}
+                    {streamMode === 'music-coach' ? '🎵 Start Practice Session' :
+                     streamMode === 'continuous' ? 'Start Live Stream' : 'Start Camera'}
                   </>
                 )}
               </button>
@@ -788,7 +875,14 @@ const GeminiLiveVideoInteracter: React.FC = () => {
             <div className="flex-1 bg-black/30 rounded-lg p-4 overflow-y-auto mb-4 space-y-3" style={{ maxHeight: '500px' }}>
               {messages.length === 0 && !currentResponse ? (
                 <div className="text-center py-16">
-                  {streamMode === 'continuous' ? (
+                  {streamMode === 'music-coach' ? (
+                    <>
+                      <Mic className="w-16 h-16 text-yellow-400/20 mx-auto mb-4" />
+                      <p className="text-white/50 text-lg">🎵 Start your practice session!</p>
+                      <p className="text-white/30 text-sm mt-2">Play any instrument or sing</p>
+                      <p className="text-white/30 text-sm">Get expert feedback on pitch, rhythm & technique</p>
+                    </>
+                  ) : streamMode === 'continuous' ? (
                     <>
                       <Radio className="w-16 h-16 text-pink-400/20 mx-auto mb-4" />
                       <p className="text-white/50 text-lg">Start streaming!</p>
@@ -885,7 +979,7 @@ const GeminiLiveVideoInteracter: React.FC = () => {
               </ul>
             </div>
             <div>
-              <p className="font-medium text-pink-300 mb-2">Continuous Stream Mode:</p>
+              <p className="font-medium text-pink-300 mb-2">Continuous Stream:</p>
               <ul className="space-y-1">
                 <li>• AI describes video automatically</li>
                 <li>• Frames sent at regular intervals</li>
@@ -894,13 +988,28 @@ const GeminiLiveVideoInteracter: React.FC = () => {
               </ul>
             </div>
             <div>
-              <p className="font-medium text-green-300 mb-2">🎤 Audio Input:</p>
+              <p className="font-medium text-yellow-300 mb-2">🎵 Music Coach:</p>
               <ul className="space-y-1">
-                <li>• Toggle audio ON/OFF before starting</li>
-                <li>• Speak naturally - AI hears you!</li>
-                <li>• Ask "How's the weather today?"</li>
-                <li>• Red indicator = AI is listening</li>
+                <li>• Expert musical feedback</li>
+                <li>• Analyzes pitch, rhythm, tone</li>
+                <li>• Play instrument or sing</li>
+                <li>• Get improvement suggestions</li>
               </ul>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg mb-3">
+            <p className="text-yellow-200 text-sm mb-2">
+              <strong>🎵 Music Coach Example Session:</strong>
+            </p>
+            <p className="text-yellow-200/80 text-xs mb-2">
+              1. Select "Music Coach" mode<br/>
+              2. Click "🎵 Start Practice Session"<br/>
+              3. Play your instrument or sing a few notes<br/>
+              4. Gemini will analyze and provide feedback like:
+            </p>
+            <div className="bg-black/30 p-3 rounded text-xs text-yellow-100/90 italic">
+              "That A note was slightly flat by about 20 cents. Try supporting more from your diaphragm to hit it cleanly. Your rhythm is solid though - keep that up!"
             </div>
           </div>
           
@@ -911,8 +1020,8 @@ const GeminiLiveVideoInteracter: React.FC = () => {
             <p className="text-green-200/80 text-xs">
               • Audio is processed at 16kHz PCM format<br/>
               • Continuous streaming sends audio + video<br/>
-              • In on-demand mode, just speak your questions naturally<br/>
-              • Watch for the red "LISTENING" indicator when you speak
+              • Music Coach mode optimized for musical notes<br/>
+              • Watch for the red "LISTENING" indicator when you speak/play
             </p>
           </div>
         </div>
