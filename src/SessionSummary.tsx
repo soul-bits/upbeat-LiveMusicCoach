@@ -1,8 +1,5 @@
 import React from 'react';
 import { Button } from "./ui/button";
-import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
-import { Separator } from "./ui/separator";
 import { 
   Trophy, 
   TrendingUp, 
@@ -13,15 +10,11 @@ import {
   Calendar,
   CheckCircle2,
   XCircle,
-  Home,
-  MessageCircle,
-  Send,
-  ChevronDown,
-  ChevronUp,
-  Bot
+  Home
 } from "lucide-react";
 import { motion } from "motion/react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { AIChatBubble } from "./AIChatBubble";
 
 export interface SessionSummaryType {
   duration: number;
@@ -41,21 +34,6 @@ interface SessionSummaryProps {
 }
 
 export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionSummaryProps) {
-  const [isChatOpen, setIsChatOpen] = React.useState(false);
-  const [chatMessages, setChatMessages] = React.useState<Array<{
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: Date;
-  }>>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: `Hi! I'm Melody, your AI piano coach assistant. I've analyzed your ${Math.floor(summary.duration / 60)}-minute practice session and I'm here to help you understand your performance and answer any questions you might have! 🎹`,
-      timestamp: new Date()
-    }
-  ]);
-  const [chatInput, setChatInput] = React.useState('');
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -344,110 +322,8 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
           </motion.div>
         )}
 
-        {/* Floating Chat Button */}
-        <div className="fixed bottom-6 right-6 z-50">
-          {/* Chat Window */}
-          {isChatOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 20 }}
-              transition={{ duration: 0.3 }}
-              className="mb-4 w-80 h-96 bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 overflow-hidden"
-            >
-              {/* Chat Header */}
-              <div className="p-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-b border-white/10">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-white text-sm font-semibold">Melody</h3>
-                      <p className="text-purple-300 text-xs">AI Piano Coach</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setIsChatOpen(false)}
-                    className="text-purple-300 hover:text-white transition-colors"
-                  >
-                    <XCircle className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="h-64 overflow-y-auto p-4 space-y-3">
-                {chatMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div
-                      className={`max-w-xs px-3 py-2 rounded-lg text-xs ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
-                          : 'bg-white/10 text-white border border-white/20'
-                      }`}
-                    >
-                      <p>{message.content}</p>
-                      <p className={`text-xs mt-1 ${
-                        message.role === 'user' ? 'text-purple-200' : 'text-purple-300'
-                      }`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Chat Input */}
-              <div className="p-3 border-t border-white/10">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Ask Melody..."
-                    className="flex-1 bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent text-xs"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && chatInput.trim()) {
-                        // TODO: Handle send message
-                        setChatInput('');
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={() => {
-                      if (chatInput.trim()) {
-                        // TODO: Handle send message
-                        setChatInput('');
-                      }
-                    }}
-                    disabled={!chatInput.trim()}
-                    className="px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-lg transition-all disabled:cursor-not-allowed flex items-center gap-1"
-                  >
-                    <Send className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Floating Button */}
-          <motion.button
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className="w-14 h-14 bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isChatOpen ? (
-              <XCircle className="w-6 h-6" />
-            ) : (
-              <MessageCircle className="w-6 h-6" />
-            )}
-          </motion.button>
-        </div>
+        {/* AI Chat Bubble */}
+        <AIChatBubble summary={summary} />
       </div>
     </div>
   );
