@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Video, Square, Mic, Send, Loader2, Music } from 'lucide-react';
+import VectaraLogger from './vectaraLogger';
 
 interface Message {
   role: 'user' | 'model';
@@ -51,11 +52,14 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Piano Tutor'));
 
   useEffect(() => {
     return () => {
       stopStreaming();
       disconnectWebSocket();
+      // Upload final session to Vectara on cleanup
+      vectaraLoggerRef.current.uploadFullSession();
     };
   }, []);
 
@@ -235,15 +239,18 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
             if (response.serverContent.turnComplete) {
               console.log('✅ Turn complete, final text:', currentResponseRef.current);
               const finalText = currentResponseRef.current;
-              
+
               if (finalText) {
                 setMessages(prev => [...prev, {
                   role: 'model',
                   content: finalText,
                   timestamp: new Date()
                 }]);
+
+                // Log AI response to Vectara
+                vectaraLoggerRef.current.logAIResponse(finalText);
               }
-              
+
               currentResponseRef.current = '';
               setCurrentResponse('');
               setIsProcessing(false);
@@ -473,18 +480,22 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
       // Send initial greeting
       setTimeout(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          const greetingText = 'Hello! I want to learn piano. Please introduce yourself and ask me what song I want to learn.';
           const message = {
             clientContent: {
               turns: [{
                 role: 'user',
                 parts: [{
-                  text: 'Hello! I want to learn piano. Please introduce yourself and ask me what song I want to learn.'
+                  text: greetingText
                 }]
               }],
               turnComplete: true
             }
           };
           wsRef.current.send(JSON.stringify(message));
+
+          // Log to Vectara
+          vectaraLoggerRef.current.logUserAction(greetingText);
         }
       }, 1000);
 
@@ -554,6 +565,9 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
       content: text,
       timestamp: new Date()
     }]);
+
+    // Log user action to Vectara
+    vectaraLoggerRef.current.logUserAction(text);
   };
 
   const quickSongRequest = (song: string) => {
