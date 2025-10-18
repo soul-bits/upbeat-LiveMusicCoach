@@ -575,7 +575,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
             <Music className="w-12 h-12" />
             AI Piano Tutor
           </h1>
-          <p className="text-purple-300 text-lg">Making music education accessible to everyone.</p>
+          <p className="text-purple-300 text-lg">Making music education accessible to everyone, anywhere.</p>
         </div>
 
         {/* Connection Status */}
