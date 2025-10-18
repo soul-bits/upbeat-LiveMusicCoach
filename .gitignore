@@ -6,6 +6,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Package manager lock files (keep package-lock.json but ignore others)
+yarn.lock
+pnpm-lock.yaml
+
 # Runtime data
 pids
 *.pid
@@ -118,8 +122,17 @@ build/
 lib/
 out/
 
+# Vite specific
+.vite/
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Vite build cache
+.vite-cache/
+
 # IDE files
 .vscode/
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -133,6 +146,29 @@ out/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# MacOS specific
+.AppleDouble
+.LSOverride
+
+# Windows specific
+Thumbs.db:encryptable
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux specific
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
 
 # Logs
 logs
@@ -152,3 +188,19 @@ storybook-static
 # Temporary files
 *.tmp
 *.temp
+
+# Project specific
+backup/
+
+# React specific
+*.tsx.bak
+*.ts.bak
+*.js.bak
+*.jsx.bak
+
+# Editor specific files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
