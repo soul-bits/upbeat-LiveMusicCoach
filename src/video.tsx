@@ -23,6 +23,8 @@ const GeminiLiveVideoInteracter: React.FC = () => {
   const [frameCaptured, setFrameCaptured] = useState(false);
   const [streamMode, setStreamMode] = useState<StreamMode>('on-demand');
   const [streamInterval, setStreamInterval] = useState(2000); // 2 seconds
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [isListening, setIsListening] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,6 +32,9 @@ const GeminiLiveVideoInteracter: React.FC = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentResponseRef = useRef<string>('');
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
   useEffect(() => {
     return () => {
@@ -72,12 +77,12 @@ const GeminiLiveVideoInteracter: React.FC = () => {
           setup: {
             model: "models/gemini-2.0-flash-exp",
             generationConfig: {
-              responseModalities: ["TEXT"],
+              responseModalities: ["TEXT"], // Can be ["TEXT", "AUDIO"] for audio responses
               temperature: 0.7
             },
             systemInstruction: {
               parts: [{
-                text: "You are a helpful AI assistant that can see video. When you receive video frames, describe what you see in a natural, conversational way. Focus on the most interesting or important elements. Keep descriptions concise but informative."
+                text: "You are a helpful AI assistant that can see video and hear audio. When you receive video frames and audio, describe what you see and respond to what you hear in a natural, conversational way. Focus on the most interesting or important elements. Keep responses concise but informative."
               }]
             }
           }
@@ -212,6 +217,106 @@ const GeminiLiveVideoInteracter: React.FC = () => {
     return dataUrl.split(',')[1];
   };
 
+  // Convert Float32Array to Int16Array (PCM)
+  const floatTo16BitPCM = (float32Array: Float32Array): Int16Array => {
+    const int16Array = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return int16Array;
+  };
+
+  // Convert Int16Array to base64
+  const int16ToBase64 = (int16Array: Int16Array): string => {
+    const uint8Array = new Uint8Array(int16Array.buffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    return btoa(binary);
+  };
+
+  const startAudioCapture = () => {
+    if (!streamRef.current || !audioEnabled) return;
+
+    try {
+      // Create audio context at 16kHz (required by Gemini)
+      audioContextRef.current = new AudioContext({ sampleRate: 16000 });
+      const audioSource = audioContextRef.current.createMediaStreamSource(streamRef.current);
+      audioSourceRef.current = audioSource;
+
+      // Create audio processor
+      const bufferSize = 4096;
+      const processor = audioContextRef.current.createScriptProcessor(bufferSize, 1, 1);
+      audioProcessorRef.current = processor;
+
+      processor.onaudioprocess = (e) => {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || !audioEnabled) {
+          return;
+        }
+
+        const inputData = e.inputBuffer.getChannelData(0);
+        
+        // Check for voice activity (simple threshold)
+        let sum = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          sum += Math.abs(inputData[i]);
+        }
+        const average = sum / inputData.length;
+        
+        // Update listening indicator
+        if (average > 0.01) {
+          setIsListening(true);
+        } else {
+          setIsListening(false);
+        }
+
+        // Convert to PCM and send
+        const pcmData = floatTo16BitPCM(inputData);
+        const base64Audio = int16ToBase64(pcmData);
+
+        const message = {
+          realtimeInput: {
+            mediaChunks: [{
+              mimeType: 'audio/pcm;rate=16000',
+              data: base64Audio
+            }]
+          }
+        };
+
+        wsRef.current.send(JSON.stringify(message));
+      };
+
+      audioSource.connect(processor);
+      processor.connect(audioContextRef.current.destination);
+
+      console.log('🎤 Audio capture started');
+    } catch (error) {
+      console.error('❌ Failed to start audio capture:', error);
+    }
+  };
+
+  const stopAudioCapture = () => {
+    if (audioProcessorRef.current) {
+      audioProcessorRef.current.disconnect();
+      audioProcessorRef.current = null;
+    }
+
+    if (audioSourceRef.current) {
+      audioSourceRef.current.disconnect();
+      audioSourceRef.current = null;
+    }
+
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    setIsListening(false);
+    console.log('🎤 Audio capture stopped');
+  };
+
   const sendRealtimeFrame = () => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       return;
@@ -301,7 +406,11 @@ const GeminiLiveVideoInteracter: React.FC = () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, frameRate: 15 },
-        audio: true
+        audio: audioEnabled ? { 
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000
+        } : false
       });
 
       streamRef.current = stream;
@@ -313,9 +422,16 @@ const GeminiLiveVideoInteracter: React.FC = () => {
       setIsStreaming(true);
       setFramesSent(0);
 
+      // Start audio capture if enabled
+      if (audioEnabled) {
+        setTimeout(() => startAudioCapture(), 500);
+      }
+
       if (streamMode === 'continuous') {
         // Start continuous streaming
-        setStatusMessage('Streaming video continuously - AI will describe what it sees');
+        setStatusMessage(audioEnabled 
+          ? 'Streaming video + audio - AI can see and hear you!' 
+          : 'Streaming video continuously - AI will describe what it sees');
         
         // Send initial prompt to start continuous description
         setTimeout(() => {
@@ -325,7 +441,9 @@ const GeminiLiveVideoInteracter: React.FC = () => {
                 turns: [{
                   role: 'user',
                   parts: [{
-                    text: 'Please describe what you see in the video stream. Continue to describe any changes or interesting things you notice.'
+                    text: audioEnabled 
+                      ? 'I will show you video and speak to you. Please respond to what you see and hear.'
+                      : 'Please describe what you see in the video stream. Continue to describe any changes or interesting things you notice.'
                   }]
                 }],
                 turnComplete: true
@@ -340,7 +458,9 @@ const GeminiLiveVideoInteracter: React.FC = () => {
           sendRealtimeFrame();
         }, streamInterval);
       } else {
-        setStatusMessage('Camera ready - Frames sent ONLY when you ask questions');
+        setStatusMessage(audioEnabled 
+          ? 'Camera + mic ready - I can see and hear you!'
+          : 'Camera ready - Frames sent ONLY when you ask questions');
       }
 
     } catch (error) {
@@ -354,6 +474,8 @@ const GeminiLiveVideoInteracter: React.FC = () => {
       clearInterval(frameIntervalRef.current);
       frameIntervalRef.current = null;
     }
+
+    stopAudioCapture();
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -444,7 +566,32 @@ const GeminiLiveVideoInteracter: React.FC = () => {
 
         {/* Stream Mode Selector */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-2xl border border-white/20">
-          <h3 className="text-white font-semibold mb-3">Stream Mode</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold">Stream Mode</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setAudioEnabled(!audioEnabled)}
+                disabled={isStreaming}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+                  audioEnabled 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : 'bg-gray-600 hover:bg-gray-700'
+                } ${isStreaming ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {audioEnabled ? (
+                  <>
+                    <Mic className="w-4 h-4 text-white" />
+                    <span className="text-white text-sm font-medium">Audio ON</span>
+                  </>
+                ) : (
+                  <>
+                    <MicOff className="w-4 h-4 text-white" />
+                    <span className="text-white text-sm font-medium">Audio OFF</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <button
               onClick={() => {
@@ -465,7 +612,7 @@ const GeminiLiveVideoInteracter: React.FC = () => {
                 <span className="text-white font-medium">On-Demand Mode</span>
               </div>
               <p className="text-sm text-white/70">
-                Capture frame only when you ask questions. Best for specific queries.
+                Capture frame only when you ask questions. {audioEnabled ? 'Speak or type your questions.' : 'Type your questions.'}
               </p>
             </button>
 
@@ -488,7 +635,9 @@ const GeminiLiveVideoInteracter: React.FC = () => {
                 <span className="text-white font-medium">Continuous Stream</span>
               </div>
               <p className="text-sm text-white/70">
-                Send video continuously. AI describes what's happening in real-time.
+                {audioEnabled 
+                  ? 'AI sees video and hears audio continuously. Natural conversation!' 
+                  : 'AI describes video automatically. Frames sent at intervals.'}
               </p>
             </button>
           </div>
@@ -542,13 +691,26 @@ const GeminiLiveVideoInteracter: React.FC = () => {
 
               {isStreaming && (
                 <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
-                  <div className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg ${
-                    streamMode === 'continuous' ? 'bg-pink-600' : 'bg-green-600'
-                  }`}>
-                    <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-                    <span className="text-white text-sm font-bold">
-                      {streamMode === 'continuous' ? 'LIVE STREAM' : 'READY'}
-                    </span>
+                  <div className="flex flex-col gap-2">
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg ${
+                      streamMode === 'continuous' ? 'bg-pink-600' : 'bg-green-600'
+                    }`}>
+                      <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
+                      <span className="text-white text-sm font-bold">
+                        {streamMode === 'continuous' ? 'LIVE STREAM' : 'READY'}
+                      </span>
+                    </div>
+                    
+                    {audioEnabled && (
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
+                        isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
+                      }`}>
+                        <Mic className="w-3 h-3 text-white" />
+                        <span className="text-white text-xs font-medium">
+                          {isListening ? 'LISTENING' : 'AUDIO'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                   {lastFrameTime && (
@@ -712,7 +874,7 @@ const GeminiLiveVideoInteracter: React.FC = () => {
         {/* Instructions */}
         <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
           <h3 className="text-xl font-semibold text-white mb-3">How to Use:</h3>
-          <div className="grid md:grid-cols-2 gap-4 text-white/80 text-sm mb-4">
+          <div className="grid md:grid-cols-3 gap-4 text-white/80 text-sm mb-4">
             <div>
               <p className="font-medium text-purple-300 mb-2">On-Demand Mode:</p>
               <ul className="space-y-1">
@@ -731,6 +893,27 @@ const GeminiLiveVideoInteracter: React.FC = () => {
                 <li>• Adjust interval (1-5 seconds)</li>
               </ul>
             </div>
+            <div>
+              <p className="font-medium text-green-300 mb-2">🎤 Audio Input:</p>
+              <ul className="space-y-1">
+                <li>• Toggle audio ON/OFF before starting</li>
+                <li>• Speak naturally - AI hears you!</li>
+                <li>• Ask "How's the weather today?"</li>
+                <li>• Red indicator = AI is listening</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-green-500/20 border border-green-500/30 rounded-lg">
+            <p className="text-green-200 text-sm mb-2">
+              <strong>🎤 Audio Feature:</strong> With audio enabled, Gemini can hear your voice in real-time!
+            </p>
+            <p className="text-green-200/80 text-xs">
+              • Audio is processed at 16kHz PCM format<br/>
+              • Continuous streaming sends audio + video<br/>
+              • In on-demand mode, just speak your questions naturally<br/>
+              • Watch for the red "LISTENING" indicator when you speak
+            </p>
           </div>
         </div>
       </div>
