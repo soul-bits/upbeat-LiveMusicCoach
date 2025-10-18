@@ -1,0 +1,40 @@
+{
+  "name": "upbeat-livemusiccoach",
+  "version": "1.0.0",
+  "description": "Upbeat is a real-time, AI-powered piano tutor built on Gemini offering a proactive, real-time learning experience, bridging the gap between a private tutor and digital learning tools.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/soul-bits/upbeat-LiveMusicCoach.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/soul-bits/upbeat-LiveMusicCoach/issues"
+  },
+  "homepage": "https://github.com/soul-bits/upbeat-LiveMusicCoach#readme",
+  "devDependencies": {
+    "@types/node": "^24.8.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10"
+  },
+  "dependencies": {
+    "lucide-react": "^0.546.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  }
+}
