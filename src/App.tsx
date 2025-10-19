@@ -3,12 +3,15 @@ import MusicInstructor from './piano';
 import { SessionSummary, SessionSummaryType } from './SessionSummary';
 import { LandingPage } from './LandingPage';
 import { AvatarProvider } from './AvatarContext';
+import { LoadingTransition } from './LoadingTransition';
 
-type AppPage = 'landing' | 'piano' | 'summary';
+type AppPage = 'landing' | 'piano' | 'loading' | 'summary';
 
 const AppContent: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<AppPage>('landing');
   const [sessionData, setSessionData] = useState<SessionSummaryType | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState<string>('Selecting your instructor...');
+  const [loadingAvatar, setLoadingAvatar] = useState<any>(null);
 
   // Mock session data - in a real app, this would come from the piano session
   const generateMockSessionData = (): SessionSummaryType => {
@@ -40,6 +43,20 @@ const AppContent: React.FC = () => {
     setCurrentPage('summary');
   };
 
+  const handleProgressUpdate = (progress: string) => {
+    setLoadingProgress(progress);
+  };
+
+  const handleAvatarSelected = (avatar: any) => {
+    setLoadingAvatar(avatar);
+  };
+
+  const handleStartEndSession = () => {
+    setCurrentPage('loading');
+    setLoadingProgress('Selecting your instructor...');
+    setLoadingAvatar(null);
+  };
+
   const handleBackToHome = () => {
     setCurrentPage('landing');
     setSessionData(null);
@@ -57,6 +74,15 @@ const AppContent: React.FC = () => {
   }
 
 
+  if (currentPage === 'loading') {
+    return (
+      <LoadingTransition
+        progress={loadingProgress}
+        avatar={loadingAvatar}
+      />
+    );
+  }
+
   if (currentPage === 'summary' && sessionData) {
     return (
       <SessionSummary
@@ -68,7 +94,12 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <MusicInstructor onEndSession={handleEndSession} />
+    <MusicInstructor 
+      onEndSession={handleEndSession}
+      onProgressUpdate={handleProgressUpdate}
+      onAvatarSelected={handleAvatarSelected}
+      onStartEndSession={handleStartEndSession}
+    />
   );
 };
 
