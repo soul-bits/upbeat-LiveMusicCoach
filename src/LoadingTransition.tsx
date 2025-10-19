@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion } from "motion/react";
-import { Loader2, Music } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from "motion/react";
+import { Loader2, Music, Flame } from "lucide-react";
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface LoadingTransitionProps {
@@ -15,9 +15,115 @@ interface LoadingTransitionProps {
 }
 
 export function LoadingTransition({ progress, avatar }: LoadingTransitionProps) {
+  const [streak, setStreak] = useState(0);
+  const [showStreakCelebration, setShowStreakCelebration] = useState(false);
+
+  // Load streak from localStorage and show celebration when ending session
+  useEffect(() => {
+    const savedStreak = localStorage.getItem('practiceStreak');
+    const lastPracticeDate = localStorage.getItem('lastPracticeDate');
+    const today = new Date().toDateString();
+    
+    if (savedStreak) {
+      const currentStreak = parseInt(savedStreak);
+      setStreak(currentStreak);
+      
+      // Show celebration when ending a session (loading page appears)
+      // This means they just completed a practice session
+      if (currentStreak > 0) {
+        setShowStreakCelebration(true);
+        // Hide celebration after 3 seconds
+        setTimeout(() => {
+          setShowStreakCelebration(false);
+        }, 3000);
+      }
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-6">
       <div className="max-w-2xl mx-auto text-center">
+        {/* Streak Celebration */}
+        <AnimatePresence>
+          {showStreakCelebration && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ 
+                duration: 0.8, 
+                type: "spring",
+                bounce: 0.6
+              }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            >
+              <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl p-8 shadow-2xl border-4 border-orange-300 max-w-md mx-4">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.2, duration: 0.5, type: "spring", bounce: 0.8 }}
+                  className="text-center"
+                >
+                  <motion.div
+                    animate={{ 
+                      scale: [1, 1.2, 1],
+                      rotate: [0, 5, -5, 0]
+                    }}
+                    transition={{ 
+                      duration: 1,
+                      repeat: Infinity,
+                      repeatType: "reverse"
+                    }}
+                    className="mb-4"
+                  >
+                    <Flame className="w-20 h-20 text-white mx-auto drop-shadow-lg" />
+                  </motion.div>
+                  
+                  <motion.h1
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.4, duration: 0.5 }}
+                    className="text-3xl font-bold text-white mb-2"
+                  >
+                    Congratulations! 🎉
+                  </motion.h1>
+                  
+                  <motion.p
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.6, duration: 0.5 }}
+                    className="text-xl text-orange-100 mb-4"
+                  >
+                    Day {streak} Streak!
+                  </motion.p>
+                  
+                  <motion.p
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.8, duration: 0.5 }}
+                    className="text-orange-200"
+                  >
+                    {streak === 1 && "Great start! Keep the momentum going!"}
+                    {streak > 1 && streak < 7 && "You're building an amazing habit!"}
+                    {streak >= 7 && streak < 30 && "Incredible consistency! You're on fire!"}
+                    {streak >= 30 && "You're a practice champion! Absolutely incredible!"}
+                  </motion.p>
+                  
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 1, duration: 0.3 }}
+                    className="mt-6 text-4xl"
+                  >
+                    {streak >= 7 && "🔥🔥"}
+                    {streak >= 30 && "🔥🔥🔥"}
+                    {streak < 7 && "🔥"}
+                  </motion.div>
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* Avatar Display */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}

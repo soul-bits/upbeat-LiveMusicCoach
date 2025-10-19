@@ -7,7 +7,8 @@ import {
   Music,
   Play,
   Pause,
-  Volume2
+  Volume2,
+  Flame
 } from "lucide-react";
 import { motion } from "motion/react";
 import { AIChatBubble } from "./AIChatBubble";
@@ -47,7 +48,46 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [streak, setStreak] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Load streak from localStorage and update it
+  useEffect(() => {
+    const loadStreak = () => {
+      const savedStreak = localStorage.getItem('practiceStreak');
+      const lastPracticeDate = localStorage.getItem('lastPracticeDate');
+      const today = new Date().toDateString();
+      
+      if (lastPracticeDate === today) {
+        // Already practiced today, keep current streak
+        setStreak(savedStreak ? parseInt(savedStreak) : 0);
+      } else if (lastPracticeDate) {
+        const lastDate = new Date(lastPracticeDate);
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        if (lastDate.toDateString() === yesterday.toDateString()) {
+          // Practiced yesterday, increment streak
+          const newStreak = (savedStreak ? parseInt(savedStreak) : 0) + 1;
+          setStreak(newStreak);
+          localStorage.setItem('practiceStreak', newStreak.toString());
+          localStorage.setItem('lastPracticeDate', today);
+        } else {
+          // Streak broken, reset to 1
+          setStreak(1);
+          localStorage.setItem('practiceStreak', '1');
+          localStorage.setItem('lastPracticeDate', today);
+        }
+      } else {
+        // First time practicing
+        setStreak(1);
+        localStorage.setItem('practiceStreak', '1');
+        localStorage.setItem('lastPracticeDate', today);
+      }
+    };
+    
+    loadStreak();
+  }, []);
 
   // Auto-play audio when component mounts and audio URL is available
   useEffect(() => {
@@ -238,6 +278,37 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
               <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
               <p className="text-sm text-slate-300 mb-1">Session Duration</p>
               <p className="text-3xl text-white font-bold">{formatTime(summary.duration)}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Streak Display */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12 }}
+        >
+          <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-2xl border border-orange-400/30">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                <Flame className="w-8 h-8 text-orange-400 animate-pulse" />
+                <div>
+                  <p className="text-sm text-orange-200 mb-1">Practice Streak</p>
+                  <p className="text-3xl text-white font-bold">
+                    Day {streak}
+                    {streak === 1 && <span className="text-lg text-orange-300 ml-1">🔥</span>}
+                    {streak > 1 && streak < 7 && <span className="text-lg text-orange-300 ml-1">🔥</span>}
+                    {streak >= 7 && <span className="text-lg text-orange-300 ml-1">🔥🔥</span>}
+                    {streak >= 30 && <span className="text-lg text-orange-300 ml-1">🔥🔥🔥</span>}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-orange-200">
+                {streak === 1 && "Great start! Keep it going!"}
+                {streak > 1 && streak < 7 && "You're building momentum!"}
+                {streak >= 7 && streak < 30 && "Amazing consistency! You're on fire!"}
+                {streak >= 30 && "Incredible dedication! You're a practice champion!"}
+              </p>
             </div>
           </div>
         </motion.div>
