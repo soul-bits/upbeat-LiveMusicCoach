@@ -3,6 +3,7 @@ import { Video, Square, Mic, Send, Loader2, Music } from 'lucide-react';
 import VectaraLogger from './vectaraLogger';
 import { useAvatar } from './AvatarContext';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { createNoteDetector, type DetectedNote, type NoteDetectorWrapper } from './noteDetectorWrapper';
 
 interface Message {
   role: 'user' | 'model';
@@ -56,6 +57,11 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const [lessonStep, setLessonStep] = useState<'idle' | 'checking_keyboard' | 'checking_hands' | 'checking_hand_position' | 'waiting_song' | 'teaching' | 'adjusting_position'>('idle');
   const [summaryAvatar, setSummaryAvatar] = useState<any>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  // Note detection state
+  const [currentNote, setCurrentNote] = useState<DetectedNote | null>(null);
+  const [detectedNotes, setDetectedNotes] = useState<DetectedNote[]>([]);
+  const [isNoteDetectionActive, setIsNoteDetectionActive] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -70,6 +76,7 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Music Instructor'));
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const noteDetectorRef = useRef<NoteDetectorWrapper | null>(null);
   
   const lastDisplayedHashRef = useRef<string>('');
   
@@ -749,7 +756,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-          sampleRate: 16000
+          sampleRate: 44100  // Higher sample rate for better note detection
         }
       });
 
@@ -757,6 +764,57 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+      }
+
+      // Initialize note detector
+      try {
+        const detector = createNoteDetector({
+          dataSize: 2048,
+          sampleRate: 44100,
+          windowType: 'hamming',
+          closeThreshold: 0.05,
+          trackLoneMs: 100,
+          trackConsMs: 50,
+          detrackMinVolume: 0.005,
+          detrackEstNoneMs: 500,
+          detrackEstSomeMs: 250,
+          stableNoteMs: 50
+        });
+
+        await detector.initialize();
+        detector.connectAudioSource(stream);
+
+        // Set callback for detected notes
+        detector.setOnNoteDetected((note: DetectedNote) => {
+          setCurrentNote(note);
+          setDetectedNotes(prev => [...prev.slice(-19), note]);
+
+          // Send note to AI instructor
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && note.stable) {
+            const noteMessage = `[NOTE_DETECTED] ${note.note}${note.octave} (${note.frequency.toFixed(1)}Hz, confidence: ${note.confidence.toFixed(2)})`;
+            console.log('🎵', noteMessage);
+
+            // Optionally send to AI (can be toggled)
+            // const message = {
+            //   clientContent: {
+            //     turns: [{
+            //       role: 'user',
+            //       parts: [{ text: noteMessage }]
+            //     }],
+            //     turnComplete: true
+            //   }
+            // };
+            // wsRef.current.send(JSON.stringify(message));
+          }
+        });
+
+        detector.startDetection();
+        noteDetectorRef.current = detector;
+        setIsNoteDetectionActive(true);
+        console.log('✅ Note detector initialized and started');
+      } catch (error) {
+        console.error('❌ Failed to initialize note detector:', error);
+        // Continue anyway - note detection is optional
       }
 
       setIsStreaming(true);
@@ -767,7 +825,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
       setSessionStartTime(now);
       setSessionDuration(0);
 
-      setStatusMessage('🎹 Piano lesson started - I can see your hands!');
+      setStatusMessage('🎹 Piano lesson started - I can see your hands and hear your notes!');
 
       setTimeout(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -851,6 +909,16 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     }
 
     stopAudioCapture();
+
+    // Stop note detector
+    if (noteDetectorRef.current) {
+      noteDetectorRef.current.stopDetection();
+      noteDetectorRef.current.destroy();
+      noteDetectorRef.current = null;
+      setIsNoteDetectionActive(false);
+      setCurrentNote(null);
+      console.log('✅ Note detector stopped and cleaned up');
+    }
 
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
@@ -1356,6 +1424,73 @@ Please provide a 2-3 paragraph summary that includes:
               )}
 
             </div>
+
+            {/* Note Detection Panel */}
+            {isStreaming && (
+              <div className="mt-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-semibold text-sm flex items-center gap-2">
+                    🎵 Note Detection
+                  </h3>
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
+                    isNoteDetectionActive ? 'bg-green-600' : 'bg-gray-600'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${isNoteDetectionActive ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
+                    <span className="text-white">{isNoteDetectionActive ? 'ACTIVE' : 'INACTIVE'}</span>
+                  </div>
+                </div>
+
+                {currentNote && currentNote.stable ? (
+                  <div className="bg-black/30 rounded-lg p-4">
+                    <div className="text-center mb-2">
+                      <div className="text-4xl font-bold text-white mb-1">
+                        {currentNote.note}{currentNote.octave}
+                      </div>
+                      <div className="text-sm text-purple-300">
+                        {currentNote.frequency.toFixed(1)} Hz
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="flex-1 bg-white/20 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-full transition-all duration-200"
+                          style={{ width: `${currentNote.confidence * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-white/70 w-12 text-right">
+                        {(currentNote.confidence * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-black/30 rounded-lg p-4 text-center">
+                    <div className="text-white/50 text-sm">
+                      {isNoteDetectionActive ? 'Play a note on your instrument...' : 'Note detection not active'}
+                    </div>
+                  </div>
+                )}
+
+                {detectedNotes.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="text-xs text-white/70 mb-2">Recent Notes:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {detectedNotes.slice(-10).reverse().map((note, idx) => (
+                        <div
+                          key={idx}
+                          className={`px-2 py-1 rounded text-xs font-medium ${
+                            note.stable
+                              ? 'bg-purple-600/60 text-white'
+                              : 'bg-gray-600/40 text-gray-300'
+                          }`}
+                        >
+                          {note.note}{note.octave}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20 flex flex-col">
