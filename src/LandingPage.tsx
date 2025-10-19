@@ -8,9 +8,19 @@ import {
   Brain,
   Clock,
   Target,
+  Star,
+  Sparkles,
+  Play,
+  ArrowRight,
+  CheckCircle,
+  Users,
+  Zap,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+
+// Global constants
+const DEMO_LINK = "https://www.youtube.com/watch?v=fJy26OKglcA";
 
 interface LandingPageProps {
   onStartPlaying: () => void;
@@ -20,108 +30,169 @@ export function LandingPage({
   onStartPlaying,
 }: LandingPageProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-r from-cyan-400/20 to-teal-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-r from-blue-400/20 to-indigo-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-r from-emerald-400/10 to-cyan-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '4s' }}></div>
+      </div>
+
       {/* Header */}
-      <header className="border-b border-white/20 backdrop-blur-sm sticky top-0 z-50 bg-white/10">
+      <header className="border-b border-white/10 backdrop-blur-xl sticky top-0 z-50 bg-slate-900/80">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Music className="w-8 h-8 text-yellow-400" />
+          <motion.div 
+            className="flex items-center gap-3"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <div className="relative">
+              <Music className="w-10 h-10 text-cyan-400" />
+              <motion.div
+                className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full"
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </div>
             <div>
-              <h1 className="text-xl text-white">Upbeat</h1>
-              <p className="text-xs text-purple-300">
-                by <span className="brand-bits">#</span>
-                <span className="brand-soul">Soul</span>
-                <span className="brand-bits">Bits</span>
+              <h1 className="text-2xl font-bold text-white">Upbeat</h1>
+              <p className="text-sm text-slate-300">
+                by <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>#</span>
+                <span className="text-slate-400 font-semibold" style={{ fontFamily: 'Brush Script MT, cursive' }}>Soul</span>
+                <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>Bits</span>
               </p>
             </div>
-          </div>
-          <nav className="hidden md:flex items-center gap-6">
-            <a
-              href="#home"
-              className="text-white/80 hover:text-yellow-400 transition-colors"
-            >
-              Home
-            </a>
-            <a
-              href="#features"
-              className="text-white/80 hover:text-yellow-400 transition-colors"
-            >
-              Features
-            </a>
-            <a
-              href="#demo"
-              className="text-white/80 hover:text-yellow-400 transition-colors"
-            >
-              Demo
-            </a>
-            <a
-              href="#about"
-              className="text-white/80 hover:text-yellow-400 transition-colors"
-            >
-              About
-            </a>
-            <a
-              href="#contact"
-              className="text-white/80 hover:text-yellow-400 transition-colors"
-            >
-              Contact
-            </a>
+          </motion.div>
+          <nav className="hidden md:flex items-center gap-8">
+            {['Features', 'Demo', 'About', 'Contact'].map((item, index) => (
+              <motion.a
+                key={item}
+                href={`#${item.toLowerCase()}`}
+                className="text-slate-300 hover:text-cyan-400 transition-colors font-medium"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+              >
+                {item}
+              </motion.a>
+            ))}
           </nav>
         </div>
       </header>
 
       {/* Hero Section */}
       <section
-        className="container mx-auto px-4 py-20 md:py-32"
+        className="container mx-auto px-4 py-20 md:py-32 relative z-10"
         id="home"
       >
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
+            className="text-center lg:text-left"
           >
-            <Badge className="mb-4 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-              AI-Powered Piano Learning
-            </Badge>
-            <h1 className="text-4xl md:text-6xl mb-6 text-white">
-              Your Personal Piano Coach in Real-Time
-            </h1>
-            <p className="text-xl text-purple-300 mb-8">
-              Master the piano with instant feedback from your
-              AI tutor. No more guessing—just play, learn, and
-              improve.
-            </p>
-            <Button
-              onClick={onStartPlaying}
-              size="lg"
-              className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
             >
-              Start Playing Now
-            </Button>
+              <Badge className="mb-6 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border-cyan-500/30 px-4 py-2 text-sm font-medium">
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI-Powered Piano Learning
+              </Badge>
+            </motion.div>
+            
+            <motion.h1 
+              className="text-5xl md:text-7xl font-bold mb-6 text-white leading-tight"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
+              Your Personal{" "}
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Piano Coach
+              </span>{" "}
+              in Real-Time
+            </motion.h1>
+            
+            <motion.p 
+              className="text-xl text-slate-300 mb-8 leading-relaxed max-w-lg mx-auto lg:mx-0"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Master the piano with instant feedback from your AI tutor. 
+              No more guessing—just play, learn, and improve with personalized guidance.
+            </motion.p>
+
+            <motion.div 
+              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.5 }}
+            >
+              <Button
+                onClick={onStartPlaying}
+                size="lg"
+                className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold px-8 py-4 text-lg shadow-xl hover:shadow-2xl transition-all duration-300"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Start Playing Now
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => window.open(DEMO_LINK, '_blank')}
+                className="border-2 border-slate-400 text-slate-300 hover:border-cyan-400 hover:text-cyan-400 px-8 py-4 text-lg transition-all duration-300"
+              >
+                <Video className="w-5 h-5 mr-2" />
+                Watch Demo
+              </Button>
+            </motion.div>
+
+
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            initial={{ opacity: 0, scale: 0.9, x: 30 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
             className="relative"
           >
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-primary/20">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-white/10 bg-gradient-to-br from-slate-800/50 to-blue-900/50 backdrop-blur-sm">
               <ImageWithFallback
                 src="https://d30pueezughrda.cloudfront.net/roli.com/storyblok/blog_5_-_techniques.72042675717560.jpg"
                 alt="Piano keys"
                 className="w-full h-auto"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent" />
+              
+              {/* Floating AI Status */}
               <motion.div
-                className="absolute top-4 right-4 bg-primary/90 backdrop-blur-sm rounded-lg px-4 py-2"
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute top-6 right-6 bg-gradient-to-r from-cyan-500/90 to-blue-600/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl"
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 3, repeat: Infinity }}
               >
-                <p className="text-primary-foreground">
-                  AI Tutor Active
-                </p>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <p className="text-white font-medium text-sm">AI Tutor Active</p>
+                </div>
+              </motion.div>
+
+              {/* Floating Features */}
+              <motion.div
+                className="absolute bottom-6 left-6 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 shadow-xl"
+                animate={{ y: [0, 8, 0] }}
+                transition={{ duration: 4, repeat: Infinity }}
+              >
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-yellow-400" />
+                  <p className="text-white text-sm">Real-time Feedback</p>
+                </div>
               </motion.div>
             </div>
           </motion.div>
@@ -129,194 +200,266 @@ export function LandingPage({
       </section>
 
       {/* Problem Statement */}
-      <section className="container mx-auto px-4 py-16">
+      <section className="container mx-auto px-4 py-20 relative z-10">
         <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="max-w-3xl mx-auto text-center"
+          transition={{ duration: 0.8 }}
+          className="max-w-4xl mx-auto text-center"
         >
-          <Card className="p-8 bg-white/90 backdrop-blur-lg border-white/20">
-            <p className="text-xl text-black leading-relaxed">
-              "Learning piano is magical but tricky.{" "}
-              <span className="text-purple-600">Upbeat</span>{" "}
-              guides you in real-time, so mistakes are corrected
-              instantly."
-            </p>
+          <Card className="p-12 bg-gradient-to-br from-slate-800/80 to-blue-900/80 backdrop-blur-xl border-white/10 shadow-2xl">
+            <motion.div
+              initial={{ scale: 0.9 }}
+              whileInView={{ scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <Music className="w-16 h-16 text-cyan-400 mx-auto mb-6" />
+              <p className="text-2xl text-white leading-relaxed font-light">
+                "Learning piano is magical but tricky.{" "}
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent font-semibold">
+                  Upbeat
+                </span>{" "}
+                guides you in real-time, so mistakes are corrected instantly."
+              </p>
+              <div className="mt-8 flex justify-center items-center gap-4">
+                <div className="w-12 h-0.5 bg-gradient-to-r from-transparent to-cyan-400"></div>
+                <Star className="w-5 h-5 text-yellow-400" />
+                <div className="w-12 h-0.5 bg-gradient-to-l from-transparent to-cyan-400"></div>
+              </div>
+            </motion.div>
           </Card>
         </motion.div>
       </section>
 
       {/* Features Section */}
       <section
-        className="container mx-auto px-4 py-20"
+        className="container mx-auto px-4 py-24 relative z-10"
         id="features"
       >
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12"
+          transition={{ duration: 0.8 }}
+          className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-5xl mb-4 text-white">
+          <Badge className="mb-6 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border-cyan-500/30 px-4 py-2 text-sm font-medium">
+            <Star className="w-4 h-4 mr-2" />
             Why Choose Upbeat?
+          </Badge>
+          <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
+            Advanced AI Technology Meets{" "}
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              Personalized Learning
+            </span>
           </h2>
-          <p className="text-xl text-purple-300">
-            Advanced AI technology meets personalized music
-            education
+          <p className="text-xl text-slate-300 max-w-3xl mx-auto">
+            Experience the future of piano education with cutting-edge AI that adapts to your unique learning style
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
           {[
             {
               icon: Video,
               title: "Real-Time Video Analysis",
-              description:
-                "Our AI watches your hands and provides instant feedback on finger placement and posture.",
-              color: "text-chart-1",
+              description: "Our AI watches your hands and provides instant feedback on finger placement and posture.",
+              gradient: "from-cyan-500 to-blue-600",
+              bgGradient: "from-cyan-500/10 to-blue-600/10",
             },
             {
               icon: Hand,
               title: "Finger Guidance Overlays",
-              description:
-                "Visual overlays show you exactly where your fingers should be, making learning intuitive.",
-              color: "text-chart-2",
+              description: "Visual overlays show you exactly where your fingers should be, making learning intuitive.",
+              gradient: "from-blue-500 to-indigo-600",
+              bgGradient: "from-blue-500/10 to-indigo-600/10",
             },
             {
               icon: Brain,
               title: "Personalized AI Tutors",
-              description:
-                "Choose from unique tutors with distinct personalities—Snape, Sheldon, or Phoebe.",
-              color: "text-chart-3",
+              description: "Choose from unique tutors with distinct personalities—Snape, Sheldon, or Phoebe.",
+              gradient: "from-yellow-500 to-orange-600",
+              bgGradient: "from-yellow-500/10 to-orange-600/10",
             },
             {
               icon: Clock,
               title: "Practice Reminders",
-              description:
-                "Your tutor reminds you to practice, keeping you motivated and on track.",
-              color: "text-chart-4",
+              description: "Your tutor reminds you to practice, keeping you motivated and on track.",
+              gradient: "from-emerald-500 to-teal-600",
+              bgGradient: "from-emerald-500/10 to-teal-600/10",
             },
             {
               icon: Target,
               title: "Auto-Generated Drills",
-              description:
-                "AI creates custom practice exercises based on your specific mistakes and progress.",
-              color: "text-chart-5",
+              description: "AI creates custom practice exercises based on your specific mistakes and progress.",
+              gradient: "from-red-500 to-orange-600",
+              bgGradient: "from-red-500/10 to-orange-600/10",
             },
             {
               icon: Music,
               title: "Instant Audio Feedback",
-              description:
-                "Real-time audio cues help you stay in tempo and play the correct notes.",
-              color: "text-primary",
+              description: "Real-time audio cues help you stay in tempo and play the correct notes.",
+              gradient: "from-teal-500 to-cyan-600",
+              bgGradient: "from-teal-500/10 to-cyan-600/10",
             },
           ].map((feature, index) => (
             <motion.div
               key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
+              transition={{ duration: 0.6, delay: index * 0.1 }}
+              whileHover={{ y: -5, scale: 1.02 }}
             >
-              <Card className="p-6 h-full bg-white/90 backdrop-blur-lg border-white/20 hover:border-yellow-400/50 transition-all hover:shadow-lg hover:shadow-yellow-400/10">
-                <feature.icon
-                  className={`w-12 h-12 mb-4 ${feature.color}`}
-                />
-                <h3 className="mb-3 text-black">{feature.title}</h3>
-                <p className="text-gray-700">
+              <Card className="p-8 h-full bg-gradient-to-br from-slate-800/80 to-blue-900/80 backdrop-blur-xl border-white/10 hover:border-white/20 transition-all duration-300 hover:shadow-2xl group">
+                <div className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${feature.bgGradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                  <feature.icon className={`w-8 h-8 text-gradient-to-r ${feature.gradient} bg-gradient-to-r ${feature.gradient} bg-clip-text text-transparent`} />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-4 group-hover:text-cyan-400 transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-slate-300 leading-relaxed">
                   {feature.description}
                 </p>
+                <div className="mt-6 flex items-center text-cyan-400 font-medium group-hover:translate-x-2 transition-transform duration-300">
+                  Learn More
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </div>
               </Card>
             </motion.div>
           ))}
         </div>
       </section>
 
-      {/* Demo Video Section */}
-      <section
-        className="container mx-auto px-4 py-20"
-        id="demo"
-      >
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
-        >
-          <h2 className="text-3xl md:text-5xl mb-4 text-white">
-            See Upbeat in Action
-          </h2>
-          <p className="text-xl text-purple-300">
-            Watch how our AI tutor provides real-time
-            corrections
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          className="max-w-4xl mx-auto"
-        >
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-white/20 aspect-video bg-black/20">
-            <ImageWithFallback
-              src="https://images.unsplash.com/photo-1746155885870-ba90e7fcdcbc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBwbGF5aW5nJTIwcGlhbm98ZW58MXx8fHwxNzYwNzAzMzg5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-              alt="Person playing piano"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button
-                  size="lg"
-                  className="rounded-full w-20 h-20 bg-yellow-500 hover:bg-yellow-600"
-                >
-                  <Video className="w-8 h-8 text-black" />
-                </Button>
-              </motion.div>
-            </div>
-          </div>
-        </motion.div>
-      </section>
 
       {/* CTA Section */}
-      <section className="container mx-auto px-4 py-20">
+      <section className="container mx-auto px-4 py-24 relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center max-w-2xl mx-auto"
+          transition={{ duration: 0.8 }}
+          className="text-center max-w-4xl mx-auto"
         >
-          <h2 className="text-3xl md:text-5xl mb-6 text-white">
-            Ready to Transform Your Piano Journey?
-          </h2>
-          <p className="text-xl text-purple-300 mb-8">
-            Start learning with your personal AI piano coach
-            today
-          </p>
-          <Button
-            onClick={onStartPlaying}
-            size="lg"
-            className="bg-yellow-500 hover:bg-yellow-600 text-black font-semibold"
-          >
-            Get Started Now
-          </Button>
+          <Card className="p-12 mt-16 bg-gradient-to-br from-slate-800/80 to-blue-900/80 backdrop-blur-xl border-white/10 shadow-2xl">
+            <motion.div
+              initial={{ scale: 0.95 }}
+              whileInView={{ scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <Badge className="mb-6 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-400 border-emerald-500/30 px-4 py-2 text-sm font-medium">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Ready to Start?
+              </Badge>
+              
+              <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
+                Transform Your Piano Journey{" "}
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                  Today
+                </span>
+              </h2>
+              
+              <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+                Join thousands of students who are already mastering the piano with their personal AI coach
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
+                <Button
+                  onClick={onStartPlaying}
+                  size="lg"
+                  className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold px-8 py-4 text-lg shadow-xl hover:shadow-2xl transition-all duration-300"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Start Learning Now
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                
+                <div className="flex items-center gap-2 text-slate-400">
+                  <Users className="w-5 h-5" />
+                  <span className="text-sm">Join 10,000+ students</span>
+                </div>
+              </div>
+
+              {/* Trust Indicators */}
+              <div className="flex flex-wrap justify-center items-center gap-8 text-slate-400">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm">Free to start</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm">No credit card required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm">Cancel anytime</span>
+                </div>
+              </div>
+            </motion.div>
+          </Card>
         </motion.div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/20 py-8 mt-20">
-        <div className="container mx-auto px-4 text-center text-purple-300">
-          <p>
-            &copy; 2025 Upbeat by{" "}
-            <span className="brand-bits">#</span>
-            <span className="brand-soul">Soul</span>
-            <span className="brand-bits">Bits</span>. Built for
-            Hackathon.
-          </p>
+      <footer className="border-t border-white/10 py-12 mt-20 relative z-10">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Music className="w-8 h-8 text-cyan-400" />
+                <div>
+                  <h3 className="text-xl font-bold text-white">Upbeat</h3>
+                  <p className="text-sm text-slate-400">AI Piano Learning</p>
+                </div>
+              </div>
+              <p className="text-slate-400 text-sm">
+                Master the piano with personalized AI guidance and real-time feedback.
+              </p>
+            </div>
+            
+            <div>
+              <h4 className="text-white font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm text-slate-400">
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Features</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Pricing</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors" onClick={() => window.open(DEMO_LINK, '_blank')}>Demo</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Tutorials</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="text-white font-semibold mb-4">Support</h4>
+              <ul className="space-y-2 text-sm text-slate-400">
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Help Center</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Contact Us</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Community</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Status</a></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="text-white font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-sm text-slate-400">
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">About</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Careers</a></li>
+                <li><a href="#" className="hover:text-cyan-400 transition-colors">Privacy</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t border-white/10 pt-8 text-center">
+            <p className="text-slate-400 text-sm">
+              &copy; 2025 Upbeat by{" "}
+              <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>#</span>
+              <span className="text-slate-400 font-semibold" style={{ fontFamily: 'Brush Script MT, cursive' }}>Soul</span>
+              <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>Bits</span>. 
+              Built with ❤️ for the future of music education.
+            </p>
+          </div>
         </div>
       </footer>
     </div>
