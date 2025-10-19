@@ -50,7 +50,7 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
     {
       id: '1',
       role: 'assistant',
-      content: `Hi! I'm Melody, your AI music coach assistant. I've analyzed your ${formatDuration(summary.duration)} practice session and I'm here to help you understand your performance and answer any questions you might have! 🎹`,
+      content: `Hi! I'm Professor Melody, your AI music coach assistant. I've analyzed your ${formatDuration(summary.duration)} practice session and I'm here to help you understand your performance and answer any questions you might have! 🎹`,
       timestamp: new Date()
     }
   ]);
