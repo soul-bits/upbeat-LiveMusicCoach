@@ -774,8 +774,9 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
         videoRef.current.srcObject = stream;
       }
 
-      // Initialize note detector
+      // Initialize note detector FIRST (before voice capture to avoid MediaStream conflicts)
       try {
+        console.log('🎵 Initializing note detector with stream...');
         const detector = createNoteDetector({
           dataSize: 2048,
           sampleRate: 44100,
@@ -786,21 +787,25 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
           detrackMinVolume: 0.005,
           detrackEstNoneMs: 500,
           detrackEstSomeMs: 250,
-          stableNoteMs: 50
+          stableNoteMs: 150  // Increase stability threshold to reduce false positives
         });
 
         await detector.initialize();
+
+        // IMPORTANT: Connect audio source BEFORE starting detection
+        console.log('🎵 Connecting audio source to note detector...');
         detector.connectAudioSource(stream);
 
         // Set callback for detected notes
         detector.setOnNoteDetected((note: DetectedNote) => {
+          console.log(`🎹 Note detected: ${note.note}${note.octave} (${note.frequency.toFixed(1)}Hz, stable: ${note.stable})`);
           setCurrentNote(note);
           setDetectedNotes(prev => [...prev.slice(-19), note]);
 
-          // Send note to AI instructor
+          // Send note to AI instructor if it's stable
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && note.stable) {
             const noteMessage = `[NOTE_DETECTED] ${note.note}${note.octave} (${note.frequency.toFixed(1)}Hz, confidence: ${note.confidence.toFixed(2)})`;
-            console.log('🎵', noteMessage);
+            console.log('🎵 Stable note detected:', noteMessage);
 
             // Optionally send to AI (can be toggled)
             // const message = {
@@ -816,12 +821,13 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
           }
         });
 
-        detector.startDetection();
+        await detector.startDetection();
         noteDetectorRef.current = detector;
         setIsNoteDetectionActive(true);
-        console.log('✅ Note detector initialized and started');
+        console.log('✅ Note detector initialized and started successfully');
       } catch (error) {
         console.error('❌ Failed to initialize note detector:', error);
+        console.error('Error details:', error);
         // Continue anyway - note detection is optional
       }
 
@@ -948,6 +954,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
 
       // Reinitialize note detector with new stream
       try {
+        console.log('🎵 Reinitializing note detector with new camera stream...');
         const detector = createNoteDetector({
           dataSize: 2048,
           sampleRate: 44100,
@@ -958,28 +965,33 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
           detrackMinVolume: 0.005,
           detrackEstNoneMs: 500,
           detrackEstSomeMs: 250,
-          stableNoteMs: 50
+          stableNoteMs: 150  // Increase stability threshold to reduce false positives
         });
 
         await detector.initialize();
+
+        // IMPORTANT: Connect audio source BEFORE starting detection
+        console.log('🎵 Connecting new audio source to note detector...');
         detector.connectAudioSource(stream);
 
         detector.setOnNoteDetected((note: DetectedNote) => {
+          console.log(`🎹 Note detected: ${note.note}${note.octave} (${note.frequency.toFixed(1)}Hz, stable: ${note.stable})`);
           setCurrentNote(note);
           setDetectedNotes(prev => [...prev.slice(-19), note]);
 
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && note.stable) {
             const noteMessage = `[NOTE_DETECTED] ${note.note}${note.octave} (${note.frequency.toFixed(1)}Hz, confidence: ${note.confidence.toFixed(2)})`;
-            console.log('🎵', noteMessage);
+            console.log('🎵 Stable note detected:', noteMessage);
           }
         });
 
-        detector.startDetection();
+        await detector.startDetection();
         noteDetectorRef.current = detector;
         setIsNoteDetectionActive(true);
-        console.log('✅ Note detector reinitialized with new camera');
+        console.log('✅ Note detector reinitialized with new camera successfully');
       } catch (error) {
         console.error('❌ Failed to reinitialize note detector:', error);
+        console.error('Error details:', error);
       }
 
       // Restart audio capture if in teaching mode
@@ -1402,9 +1414,12 @@ Please provide a 2-3 paragraph summary that includes:
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
-            <h2 className="text-2xl font-semibold text-white mb-4">🎹 Piano View</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ minHeight: '600px' }}>
+          {/* Camera Section - Left Column */}
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 shadow-2xl border border-white/20">
+            <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+              📹 Camera Feed
+            </h2>
 
             <div className="relative bg-black rounded-xl overflow-hidden aspect-video mb-4 shadow-lg">
               <video
@@ -1423,45 +1438,45 @@ Please provide a 2-3 paragraph summary that includes:
               {!isStreaming && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
                   <Music className="w-20 h-20 text-white/30 mb-4" />
-                  <p className="text-white/50 text-sm">Position camera to show piano + hands</p>
+                  <p className="text-white/50 text-sm text-center">Position camera to show piano + hands</p>
                 </div>
               )}
 
               {isStreaming && (
                 <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
                   <div className="flex flex-col gap-2">
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg ${
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg text-xs ${
                       lessonStep === 'adjusting_position' ? 'bg-orange-600 animate-pulse' : 'bg-blue-600'
                     }`}>
-                      <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-                      <span className="text-white text-sm font-bold">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                      <span className="text-white font-bold">
                         {lessonStep === 'adjusting_position' ? '⚠️ ADJUST' : 'TEACHING'}
                       </span>
                     </div>
 
                     {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && (
-                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full shadow-lg transition-all text-xs ${
                         isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
                       }`}>
                         <Mic className="w-3 h-3 text-white" />
-                        <span className="text-white text-xs font-medium">
-                          {isListening ? 'HEARING YOU' : 'LISTENING'}
+                        <span className="text-white font-medium">
+                          {isListening ? 'HEARING' : 'LISTENING'}
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex flex-col gap-2 items-end">
+                  <div className="flex flex-col gap-1.5 items-end">
                     {lastFrameTime && (
-                      <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
+                      <div className="bg-cyan-600 px-2.5 py-1 rounded-full shadow-lg">
                         <span className="text-white text-xs">Last: {lastFrameTime}</span>
                       </div>
                     )}
 
                     {sessionDuration > 0 && (
-                      <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
+                      <div className="bg-green-600 px-2.5 py-1 rounded-full shadow-lg">
                         <span className="text-white text-xs">
-                          Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
+                          {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
                         </span>
                       </div>
                     )}
@@ -1473,19 +1488,19 @@ Please provide a 2-3 paragraph summary that includes:
               {isStreaming && (
                 <button
                   onClick={switchCamera}
-                  className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur flex items-center justify-center shadow-lg border-2 border-white/30 hover:border-cyan-400 transition-all duration-300 group"
+                  className="absolute bottom-4 right-4 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur flex items-center justify-center shadow-lg border-2 border-white/30 hover:border-cyan-400 transition-all duration-300 group"
                   title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}
                 >
-                  <FlipHorizontal className="w-5 h-5 text-white group-hover:text-cyan-400 transition-colors" />
+                  <FlipHorizontal className="w-4 h-4 text-white group-hover:text-cyan-400 transition-colors" />
                 </button>
               )}
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button
                 onClick={isStreaming ? stopStreaming : startStreaming}
                 disabled={!isConnected}
-                className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-medium transition-all text-lg ${
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-all text-sm ${
                   isStreaming
                     ? 'bg-red-600 hover:bg-red-700 text-white'
                     : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed'
@@ -1493,133 +1508,70 @@ Please provide a 2-3 paragraph summary that includes:
               >
                 {isStreaming ? (
                   <>
-                    <Square className="w-6 h-6" />
+                    <Square className="w-4 h-4" />
                     End Session
                   </>
                 ) : (
                   <>
-                    <Music className="w-6 h-6" />
-                    Start Piano Lesson
+                    <Music className="w-4 h-4" />
+                    Start Lesson
                   </>
                 )}
               </button>
-
-              {isStreaming && lessonStep === 'waiting_song' && (
-                <div className="space-y-2">
-                  <p className="text-white text-sm font-medium">Quick Song Requests:</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => quickSongRequest("Twinkle Twinkle Little Star")}
-                      disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
-                    >
-                      ⭐ Twinkle Twinkle
-                    </button>
-                    <button
-                      onClick={() => quickSongRequest("Happy Birthday")}
-                      disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
-                    >
-                      🎂 Happy Birthday
-                    </button>
-                    <button
-                      onClick={() => quickSongRequest("Mary Had a Little Lamb")}
-                      disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
-                    >
-                      🐑 Mary's Lamb
-                    </button>
-                    <button
-                      onClick={() => quickSongRequest("Jingle Bells")}
-                      disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
-                    >
-                      🔔 Jingle Bells
-                    </button>
-                  </div>
-                </div>
-              )}
-
             </div>
-
-            {/* Note Detection Panel */}
-            {isStreaming && (
-              <div className="mt-4 bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-semibold text-sm flex items-center gap-2">
-                    🎵 Note Detection
-                  </h3>
-                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-                    isNoteDetectionActive ? 'bg-green-600' : 'bg-gray-600'
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${isNoteDetectionActive ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
-                    <span className="text-white">{isNoteDetectionActive ? 'ACTIVE' : 'INACTIVE'}</span>
-                  </div>
-                </div>
-
-                {currentNote && currentNote.stable ? (
-                  <div className="bg-black/30 rounded-lg p-4">
-                    <div className="text-center mb-2">
-                      <div className="text-4xl font-bold text-white mb-1">
-                        {currentNote.note}{currentNote.octave}
-                      </div>
-                      <div className="text-sm text-purple-300">
-                        {currentNote.frequency.toFixed(1)} Hz
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="flex-1 bg-white/20 rounded-full h-2 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-full transition-all duration-200"
-                          style={{ width: `${currentNote.confidence * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-white/70 w-12 text-right">
-                        {(currentNote.confidence * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-black/30 rounded-lg p-4 text-center">
-                    <div className="text-white/50 text-sm">
-                      {isNoteDetectionActive ? 'Play a note on your instrument...' : 'Note detection not active'}
-                    </div>
-                  </div>
-                )}
-
-                {detectedNotes.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-white/10">
-                    <div className="text-xs text-white/70 mb-2">Recent Notes:</div>
-                    <div className="flex flex-wrap gap-1">
-                      {detectedNotes.slice(-10).reverse().map((note, idx) => (
-                        <div
-                          key={idx}
-                          className={`px-2 py-1 rounded text-xs font-medium ${
-                            note.stable
-                              ? 'bg-purple-600/60 text-white'
-                              : 'bg-gray-600/40 text-gray-300'
-                          }`}
-                        >
-                          {note.note}{note.octave}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20 flex flex-col">
-            <h2 className="text-2xl font-semibold text-white mb-4">💬 Lesson Chat</h2>
+          {/* Right Column - AI Chat */}
+          <div className="space-y-4">
+            {/* AI Chat Section */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-4 shadow-2xl border border-white/20 flex flex-col">
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                💬 AI Instructor
+              </h2>
 
-            <div ref={chatContainerRef} className="flex-1 bg-black/30 rounded-lg p-4 overflow-y-auto mb-4 space-y-3" style={{ maxHeight: '550px' }}>
+            {/* Quick Song Requests - Show at top of chat when ready */}
+            {isStreaming && lessonStep === 'waiting_song' && (
+              <div className="mb-4 p-3 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-xl">
+                <p className="text-white text-sm font-medium mb-2">🎵 Quick Song Requests:</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => quickSongRequest("Twinkle Twinkle Little Star")}
+                    disabled={isProcessing}
+                    className="px-2 py-1.5 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg text-xs font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                  >
+                    ⭐ Twinkle
+                  </button>
+                  <button
+                    onClick={() => quickSongRequest("Happy Birthday")}
+                    disabled={isProcessing}
+                    className="px-2 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                  >
+                    🎂 Birthday
+                  </button>
+                  <button
+                    onClick={() => quickSongRequest("Mary Had a Little Lamb")}
+                    disabled={isProcessing}
+                    className="px-2 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-xs font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                  >
+                    🐑 Mary's Lamb
+                  </button>
+                  <button
+                    onClick={() => quickSongRequest("Jingle Bells")}
+                    disabled={isProcessing}
+                    className="px-2 py-1.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg text-xs font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                  >
+                    🔔 Jingle Bells
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div ref={chatContainerRef} className="flex-1 bg-black/30 rounded-lg p-4 overflow-y-auto mb-4 space-y-3" style={{ minHeight: '400px', maxHeight: '500px' }}>
               {messages.length === 0 && !currentResponse ? (
-                <div className="text-center py-16">
-                  <Music className="w-16 h-16 text-blue-400/20 mx-auto mb-4" />
-                  <p className="text-white/50 text-lg">Start your lesson!</p>
-                  <p className="text-white/30 text-sm mt-2">Your AI piano teacher will guide you step-by-step</p>
-                  <p className="text-white/30 text-sm">Ask any question or request a song</p>
+                <div className="text-center py-12">
+                  <Music className="w-12 h-12 text-blue-400/20 mx-auto mb-3" />
+                  <p className="text-white/50 text-sm">Start your lesson!</p>
+                  <p className="text-white/30 text-xs mt-1">Your AI piano teacher will guide you step-by-step</p>
                 </div>
               ) : (
                 <>
@@ -1629,14 +1581,14 @@ Please provide a 2-3 paragraph summary that includes:
                       className={`${msg.role === 'user' ? 'ml-8' : 'mr-8'}`}
                     >
                       <div
-                        className={`p-4 rounded-lg shadow-lg ${
+                        className={`p-3 rounded-lg shadow-lg ${
                           msg.role === 'user'
                             ? 'bg-gradient-to-r from-cyan-600 to-blue-600'
                             : 'bg-gradient-to-r from-blue-600/40 to-cyan-600/40 backdrop-blur'
                         }`}
                       >
-                        <p className="text-white whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                        <p className="text-xs text-white/70 mt-2">
+                        <p className="text-white whitespace-pre-wrap leading-relaxed text-sm">{msg.content}</p>
+                        <p className="text-xs text-white/60 mt-1">
                           {msg.timestamp.toLocaleTimeString()}
                         </p>
                       </div>
@@ -1645,10 +1597,10 @@ Please provide a 2-3 paragraph summary that includes:
 
                   {currentResponse && (
                     <div className="mr-8">
-                      <div className="p-4 rounded-lg bg-gradient-to-r from-blue-600/40 to-cyan-600/40 backdrop-blur shadow-lg">
+                      <div className="p-3 rounded-lg bg-gradient-to-r from-blue-600/40 to-cyan-600/40 backdrop-blur shadow-lg">
                         <div className="flex items-start gap-2">
-                          <Loader2 className="w-4 h-4 text-blue-400 animate-spin mt-1 flex-shrink-0" />
-                          <p className="text-white whitespace-pre-wrap leading-relaxed">{currentResponse}</p>
+                          <Loader2 className="w-4 h-4 text-blue-400 animate-spin mt-0.5 flex-shrink-0" />
+                          <p className="text-white whitespace-pre-wrap leading-relaxed text-sm">{currentResponse}</p>
                         </div>
                       </div>
                     </div>
@@ -1661,9 +1613,9 @@ Please provide a 2-3 paragraph summary that includes:
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder='Ask: "How do I play C major chord?" or "Teach me Twinkle Twinkle"'
+                  placeholder='Ask: "How do I play C major chord?" or "Teach me a song"'
                   disabled={isProcessing}
-                  className="flex-1 px-4 py-3 bg-white/20 backdrop-blur text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50 disabled:bg-white/10 disabled:cursor-not-allowed"
+                  className="flex-1 px-3 py-2 bg-white/20 backdrop-blur text-white text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-white/50 disabled:bg-white/10 disabled:cursor-not-allowed"
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                       sendMessage(e.currentTarget.value);
@@ -1680,10 +1632,59 @@ Please provide a 2-3 paragraph summary that includes:
                     }
                   }}
                   disabled={isProcessing}
-                  className="px-5 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed shadow-lg"
                 >
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4" />
                 </button>
+              </div>
+            )}
+            </div>
+          </div>
+
+          {/* Note Detection - Ultra Compact */}
+          <div className="mt-2 bg-white/10 backdrop-blur-lg rounded-lg p-2 shadow-2xl border border-white/20">
+            <h2 className="text-sm font-semibold text-white mb-2 flex items-center gap-1">
+              🎵 Note Detection
+            </h2>
+
+            {/* Current Note Display - Ultra Compact */}
+            <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-lg p-2 mb-2">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-white font-semibold text-xs">Current Note</h3>
+                <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs ${
+                  isNoteDetectionActive ? 'bg-green-600' : 'bg-gray-600'
+                }`}>
+                  <div className={`w-1 h-1 rounded-full ${isNoteDetectionActive ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
+                  <span className="text-white text-xs">{isNoteDetectionActive ? 'ON' : 'OFF'}</span>
+                </div>
+              </div>
+
+              {currentNote && currentNote.stable ? (
+                <div className="bg-black/30 rounded p-2 text-center">
+                  <div className="text-xl font-bold text-white">{currentNote.note}{currentNote.octave}</div>
+                  <div className="text-xs text-purple-300">{currentNote.frequency.toFixed(1)} Hz</div>
+                </div>
+              ) : (
+                <div className="bg-black/30 rounded p-2 text-center">
+                  <div className="text-white/50 text-xs">{isNoteDetectionActive ? 'Waiting...' : 'Inactive'}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Recent Notes - Ultra Compact */}
+            {detectedNotes.length > 0 && (
+              <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-500/30 rounded-lg p-2">
+                <h3 className="text-white font-semibold text-xs mb-1">Recent</h3>
+                <div className="grid grid-cols-6 gap-1">
+                  {detectedNotes.slice(-6).reverse().map((note, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-1 rounded text-center ${note.stable ? 'bg-purple-600/60 text-white' : 'bg-gray-600/40 text-gray-300'}`}
+                    >
+                      <div className="text-xs font-bold">{note.note}{note.octave}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
