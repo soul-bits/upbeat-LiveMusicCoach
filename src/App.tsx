@@ -2,16 +2,12 @@ import React, { useState } from 'react';
 import MusicInstructor from './piano';
 import { SessionSummary, SessionSummaryType } from './SessionSummary';
 import { LandingPage } from './LandingPage';
-import { SetupPage, SetupConfig } from './SetupPage';
-import { AvatarProvider, useAvatar } from './AvatarContext';
 
-type AppPage = 'landing' | 'setup' | 'piano' | 'summary';
+type AppPage = 'landing' | 'piano' | 'summary';
 
 const AppContent: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<AppPage>('landing');
   const [sessionData, setSessionData] = useState<SessionSummaryType | null>(null);
-  const [setupConfig, setSetupConfig] = useState<SetupConfig | null>(null);
-  const { setSelectedAvatar } = useAvatar();
 
   // Mock session data - in a real app, this would come from the piano session
   const generateMockSessionData = (): SessionSummaryType => {
@@ -30,17 +26,7 @@ const AppContent: React.FC = () => {
   };
 
   const handleStartPlaying = () => {
-    setCurrentPage('setup');
-  };
-
-  const handleSetupComplete = (config: SetupConfig) => {
-    setSetupConfig(config);
-    setSelectedAvatar(config.selectedAvatar);
     setCurrentPage('piano');
-  };
-
-  const handleSetupBack = () => {
-    setCurrentPage('landing');
   };
 
   const handleEndSession = (sessionData: SessionSummaryType) => {
@@ -51,7 +37,6 @@ const AppContent: React.FC = () => {
   const handleBackToHome = () => {
     setCurrentPage('landing');
     setSessionData(null);
-    setSetupConfig(null);
   };
 
   const handleNewSession = () => {
@@ -65,14 +50,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  if (currentPage === 'setup') {
-    return (
-      <SetupPage 
-        onComplete={handleSetupComplete}
-        onBack={handleSetupBack}
-      />
-    );
-  }
 
   if (currentPage === 'summary' && sessionData) {
     return (
@@ -90,11 +67,7 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  return (
-    <AvatarProvider>
-      <AppContent />
-    </AvatarProvider>
-  );
+  return <AppContent />;
 };
 
 export default App;
