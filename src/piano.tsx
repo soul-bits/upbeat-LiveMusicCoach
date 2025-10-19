@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Video, Square, Mic, Send, Loader2, Music, SwitchCamera } from 'lucide-react';
+import { Video, Square, Mic, Send, Loader2, Music } from 'lucide-react';
 import VectaraLogger from './vectaraLogger';
 import { useAvatar } from './AvatarContext';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -40,8 +40,7 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [lessonStep, setLessonStep] = useState<'idle' | 'checking_keyboard' | 'checking_hands' | 'checking_hand_position' | 'waiting_song' | 'teaching' | 'adjusting_position'>('idle');
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment'); // Default to back camera for piano
-
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -455,25 +454,29 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
     return btoa(binary);
   };
 
-  // Reference to current playing audio to prevent overlap
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  const generateTTS = async (text: string) => {
-    const openaiApiKey = (import.meta as any).env?.VITE_OPENAI_API_KEY || '';
+  const generateTTS = (text: string) => {
+    console.log('🎵 TTS called with text:', text);
     
-    if (!openaiApiKey) {
-      console.warn('⚠️ No OpenAI API key for TTS');
+    // Check if browser supports speech synthesis
+    if (!('speechSynthesis' in window)) {
+      console.warn('⚠️ Speech synthesis not supported in this browser');
       return;
     }
 
-    try {
-      // Stop any currently playing audio to prevent overlap
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-        currentAudioRef.current.currentTime = 0;
-        console.log('🔇 Stopped previous TTS to prevent overlap');
-      }
+    // Skip if text is empty or too short
+    if (!text || text.trim().length < 3) {
+      console.log('🔇 Skipping TTS - text too short');
+      return;
+    }
 
+    // Check if speech synthesis is speaking
+    if (speechSynthesis.speaking) {
+      console.log('🔇 Speech already in progress, cancelling...');
+      speechSynthesis.cancel();
+    }
+    
+    // Wait a bit before starting new speech to avoid interruption
+    setTimeout(() => {
       // Process text to handle musical notes with special pronunciation
       const processedText = text
         .replace(/\b([CDEFGAB])\b/g, '$1~') // Add ~ to musical notes for emphasis
@@ -481,56 +484,64 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
         .replace(/Middle C/gi, 'Middle C~') // Special case for "Middle C"
         .replace(/key ([CDEFGAB])/gi, 'key $1~'); // Notes after "key"
 
-      const response = await fetch('https://api.openai.com/v1/audio/speech', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'tts-1',
-          input: processedText,
-          voice: 'nova', // Warm, friendly voice good for teaching
-          response_format: 'mp3',
-          speed: 0.9 // Slightly slower for teaching
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ OpenAI TTS API error:', response.status, errorText);
-        return;
+      const utterance = new SpeechSynthesisUtterance(processedText);
+      
+      // Configure voice settings for a warm, friendly music teacher tone
+      utterance.rate = 0.9; // Slightly slower for teaching
+      utterance.pitch = 1.1; // Slightly higher pitch for friendliness
+      utterance.volume = 0.8; // Good volume level
+      
+      // Try to find a suitable voice
+      const voices = speechSynthesis.getVoices();
+      console.log('🎤 Available voices:', voices.length);
+      console.log('🎤 Voice names:', voices.map(v => v.name));
+      
+      const preferredVoices = ['Google UK English Female', 'Google US English Female', 'Microsoft Zira Desktop'];
+      
+      for (const voiceName of preferredVoices) {
+        const voice = voices.find(v => v.name.includes(voiceName));
+        if (voice) {
+          utterance.voice = voice;
+          console.log('🎤 Using preferred voice:', voice.name);
+          break;
+        }
+      }
+      
+      // If no preferred voice found, use the first available English voice
+      if (!utterance.voice) {
+        const englishVoice = voices.find(v => v.lang.startsWith('en'));
+        if (englishVoice) {
+          utterance.voice = englishVoice;
+          console.log('🎤 Using English voice:', englishVoice.name);
+        } else {
+          console.log('🎤 Using default voice');
+        }
       }
 
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      
-      // Store reference to current audio
-      currentAudioRef.current = audio;
-      
-      audio.play().catch(error => {
-        console.error('❌ Error playing TTS audio:', error);
-      });
-      
-      // Clean up the URL after playing and clear reference
-      audio.onended = () => {
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
-        console.log('🔊 TTS finished playing');
+      utterance.onstart = () => {
+        console.log('🔊 TTS started speaking:', processedText.substring(0, 50) + '...');
       };
 
-      // Handle audio errors and clear reference
-      audio.onerror = () => {
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
-        console.error('❌ TTS audio error occurred');
+      utterance.onend = () => {
+        console.log('🔊 TTS finished speaking');
       };
-      
-      console.log('🔊 TTS audio generated and playing with OpenAI TTS');
-    } catch (error) {
-      console.error('❌ TTS generation failed:', error);
-    }
+
+      utterance.onerror = (event) => {
+        // Only log non-interruption errors
+        if (event.error !== 'interrupted') {
+          console.error('❌ TTS error:', event.error);
+        } else {
+          console.log('🔇 TTS interrupted (normal)');
+        }
+      };
+
+      // Speak the text
+      try {
+        speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.error('❌ Failed to start speech synthesis:', error);
+      }
+    }, 100); // Small delay to prevent interruption
   };
 
   const startAudioCapture = () => {
@@ -712,12 +723,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: 1280,
-          height: 720,
-          frameRate: 30,
-          facingMode: facingMode
-        },
+        video: { width: 1280, height: 720, frameRate: 30 },
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
@@ -807,7 +813,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
 
   const stopStreaming = () => {
     console.log('🛑 Stopping streaming...');
-
+    
     if (frameIntervalRef.current) {
       clearInterval(frameIntervalRef.current);
       frameIntervalRef.current = null;
@@ -842,77 +848,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
         notesPlayed: 0,
         mistakes: []
       });
-    }
-  };
-
-  const switchCamera = async () => {
-    if (!isStreaming) return;
-
-    // Stop current stream
-    if (frameIntervalRef.current) {
-      clearInterval(frameIntervalRef.current);
-      frameIntervalRef.current = null;
-    }
-
-    if (checkInIntervalRef.current) {
-      clearInterval(checkInIntervalRef.current);
-      checkInIntervalRef.current = null;
-    }
-
-    stopAudioCapture();
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-
-    // Toggle facing mode
-    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-    setFacingMode(newFacingMode);
-
-    // Restart stream with new facing mode
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: 1280,
-          height: 720,
-          frameRate: 30,
-          facingMode: newFacingMode
-        },
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 16000
-        }
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-
-      // Restart audio if in teaching stages
-      if (lessonStep === 'waiting_song' || lessonStep === 'teaching') {
-        setTimeout(() => startAudioCapture(), 500);
-      }
-
-      // Restart frame streaming
-      frameIntervalRef.current = setInterval(() => {
-        sendRealtimeFrame();
-      }, streamInterval);
-
-      // Restart check-ins
-      checkInIntervalRef.current = setInterval(() => {
-        const currentStep = lessonStepRef.current;
-        console.log('⏰ Check-in triggered - step:', currentStep);
-        sendCheckInMessage(currentStep);
-      }, 10000);
-
-    } catch (error) {
-      console.error('❌ Error switching camera:', error);
-      setStatusMessage('Failed to switch camera');
     }
   };
 
@@ -954,6 +889,11 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     sendMessage(`I want to learn how to play "${song}" on piano. Please teach me step by step.`);
   };
 
+  const testTTS = () => {
+    console.log('🧪 Testing TTS...');
+    generateTTS("Hello! This is a test of the text to speech system. Can you hear me?");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -989,16 +929,24 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                 </p>
               </div>
             </div>
-            <button
-              onClick={isConnected ? disconnectWebSocket : connectToGemini}
-              className={`px-6 py-3 rounded-lg font-medium transition-all ${
-                isConnected
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white'
-              }`}
-            >
-              {isConnected ? 'Disconnect' : 'Connect'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={isConnected ? disconnectWebSocket : connectToGemini}
+                className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                  isConnected
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white'
+                }`}
+              >
+                {isConnected ? 'Disconnect' : 'Connect'}
+              </button>
+              <button
+                onClick={testTTS}
+                className="px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all"
+              >
+                🔊 Test TTS
+              </button>
+            </div>
           </div>
           {isStreaming && (
             <div className="mt-3 pt-3 border-t border-white/10">
@@ -1102,7 +1050,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                         {lessonStep === 'adjusting_position' ? '⚠️ ADJUST' : 'TEACHING'}
                       </span>
                     </div>
-
+                    
                     {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && (
                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
                         isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
@@ -1114,30 +1062,20 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                       </div>
                     )}
                   </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    {lastFrameTime && (
-                      <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
-                        <span className="text-white text-xs">Last: {lastFrameTime}</span>
-                      </div>
-                    )}
-
-                    {sessionDuration > 0 && (
-                      <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
-                        <span className="text-white text-xs">
-                          Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
-                        </span>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={switchCamera}
-                      className="bg-white/20 hover:bg-white/30 backdrop-blur px-3 py-2 rounded-full shadow-lg transition-all"
-                      title="Switch Camera"
-                    >
-                      <SwitchCamera className="w-5 h-5 text-white" />
-                    </button>
-                  </div>
+                  
+                  {lastFrameTime && (
+                    <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
+                      <span className="text-white text-xs">Last: {lastFrameTime}</span>
+                    </div>
+                  )}
+                  
+                  {sessionDuration > 0 && (
+                    <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
+                      <span className="text-white text-xs">
+                        Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
