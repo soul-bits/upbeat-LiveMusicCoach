@@ -21,6 +21,14 @@ export interface SessionSummaryType {
     note: string;
   }>;
   conversationSummary?: string;
+  summaryAvatar?: {
+    id: string;
+    name: string;
+    avatar_url: string;
+    video_url: string;
+    personality: string;
+    quote: string;
+  };
 }
 
 interface SessionSummaryProps {
@@ -118,14 +126,62 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
           >
             <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-2xl border border-white/20">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">📝</span>
-                </div>
+                {summary.summaryAvatar ? (
+                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-cyan-400">
+                    <ImageWithFallback
+                      src={summary.summaryAvatar.avatar_url}
+                      alt={summary.summaryAvatar.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">📝</span>
+                  </div>
+                )}
                 <div>
-                  <h2 className="text-xl font-semibold text-white">Session Summary</h2>
-                  <p className="text-sm text-slate-300">AI-generated reflection on your lesson</p>
+                  <h2 className="text-xl font-semibold text-white">
+                    Session Summary
+                    {summary.summaryAvatar && (
+                      <span className="text-sm font-normal text-cyan-300 ml-2">
+                        by {summary.summaryAvatar.name}
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-sm text-slate-300">
+                    {summary.summaryAvatar ? summary.summaryAvatar.personality : 'AI-generated reflection on your lesson'}
+                  </p>
                 </div>
               </div>
+              {summary.summaryAvatar?.video_url && (
+                <motion.div 
+                  className="mb-4 bg-black/30 rounded-lg overflow-hidden border border-white/10 relative"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2, duration: 0.5 }}
+                >
+                  <video
+                    src={summary.summaryAvatar.video_url}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-100 object-contain transition-transform duration-300 hover:scale-105"
+                    onError={(e) => {
+                      // Fallback to image if video fails to load
+                      const video = e.target as HTMLVideoElement;
+                      const img = document.createElement('img');
+                      img.src = summary.summaryAvatar?.avatar_url || '';
+                      img.alt = summary.summaryAvatar?.name || 'Avatar';
+                      img.className = 'w-full h-48 object-contain transition-transform duration-300 hover:scale-105';
+                      video.parentNode?.replaceChild(img, video);
+                    }}
+                  />
+                  <div className="absolute bottom-2 right-2 bg-black/50 px-2 py-1 rounded text-xs text-white backdrop-blur-sm">
+                    {summary.summaryAvatar.name}
+                  </div>
+                </motion.div>
+              )}
               <div className="bg-black/20 rounded-lg p-4 border border-white/10">
                 <p className="text-white/90 leading-relaxed whitespace-pre-wrap">
                   {summary.conversationSummary}
