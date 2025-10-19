@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Video, Square, Mic, MicOff, Send, Loader2, Eye, Radio } from 'lucide-react';
+import { Video, Square, Mic, MicOff, Send, Loader2, Eye, Radio, SwitchCamera } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'model';
@@ -25,7 +25,8 @@ const GeminiLiveVideoInteracter: React.FC = () => {
   const [streamInterval, setStreamInterval] = useState(2000); // 2 seconds
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [isListening, setIsListening] = useState(false);
-  
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // 'user' = front, 'environment' = back
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -433,8 +434,13 @@ Keep responses conversational and encouraging, like a friendly music teacher.`;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480, frameRate: 15 },
-        audio: audioEnabled ? { 
+        video: {
+          width: 640,
+          height: 480,
+          frameRate: 15,
+          facingMode: facingMode
+        },
+        audio: audioEnabled ? {
           echoCancellation: true,
           noiseSuppression: true,
           sampleRate: 16000
@@ -526,6 +532,71 @@ Keep responses conversational and encouraging, like a friendly music teacher.`;
     setLastFrameTime('');
     setFramesSent(0);
     setStatusMessage(isConnected ? 'Connected - Ready' : 'Not connected');
+  };
+
+  const switchCamera = async () => {
+    if (!isStreaming) return;
+
+    const wasStreaming = isStreaming;
+    const currentStreamMode = streamMode;
+    const currentAudioEnabled = audioEnabled;
+
+    // Stop current stream
+    if (frameIntervalRef.current) {
+      clearInterval(frameIntervalRef.current);
+      frameIntervalRef.current = null;
+    }
+
+    stopAudioCapture();
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    // Toggle facing mode
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+
+    // Restart stream with new facing mode
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: 640,
+          height: 480,
+          frameRate: 15,
+          facingMode: newFacingMode
+        },
+        audio: currentAudioEnabled ? {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000
+        } : false
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // Restart audio capture if it was enabled
+      if (currentAudioEnabled || currentStreamMode === 'music-coach') {
+        setTimeout(() => startAudioCapture(), 500);
+      }
+
+      // Restart frame streaming if in continuous mode
+      if (currentStreamMode === 'continuous' || currentStreamMode === 'music-coach') {
+        const frameRate = currentStreamMode === 'music-coach' ? 5000 : streamInterval;
+        frameIntervalRef.current = setInterval(() => {
+          sendRealtimeFrame();
+        }, frameRate);
+      }
+
+    } catch (error) {
+      console.error('❌ Error switching camera:', error);
+      setStatusMessage('Failed to switch camera');
+    }
   };
 
   const askQuestion = (question: string) => {
@@ -765,7 +836,7 @@ Keep responses conversational and encouraging, like a friendly music teacher.`;
                          streamMode === 'continuous' ? 'LIVE STREAM' : 'READY'}
                       </span>
                     </div>
-                    
+
                     {(audioEnabled || streamMode === 'music-coach') && (
                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
                         isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
@@ -777,12 +848,21 @@ Keep responses conversational and encouraging, like a friendly music teacher.`;
                       </div>
                     )}
                   </div>
-                  
-                  {lastFrameTime && (
-                    <div className="bg-blue-600 px-3 py-1 rounded-full shadow-lg">
-                      <span className="text-white text-xs">Last: {lastFrameTime}</span>
-                    </div>
-                  )}
+
+                  <div className="flex flex-col items-end gap-2">
+                    {lastFrameTime && (
+                      <div className="bg-blue-600 px-3 py-1 rounded-full shadow-lg">
+                        <span className="text-white text-xs">Last: {lastFrameTime}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={switchCamera}
+                      className="bg-white/20 hover:bg-white/30 backdrop-blur px-3 py-2 rounded-full shadow-lg transition-all"
+                      title="Switch Camera"
+                    >
+                      <SwitchCamera className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
