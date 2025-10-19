@@ -20,6 +20,7 @@ interface MusicInstructorProps {
       timestamp: number;
       note: string;
     }>;
+    conversationSummary?: string;
   }) => void;
 }
 
@@ -811,7 +812,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     }
   };
 
-  const stopStreaming = () => {
+  const stopStreaming = async () => {
     console.log('🛑 Stopping streaming...');
     
     if (frameIntervalRef.current) {
@@ -842,12 +843,32 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     setStatusMessage(isConnected ? 'Connected - Ready to teach!' : 'Not connected');
 
     if (onEndSession) {
-      onEndSession({
-        duration: sessionDuration,
-        accuracy: 0,
-        notesPlayed: 0,
-        mistakes: []
-      });
+      // Generate session summary
+      console.log('📝 Generating session summary...');
+      setStatusMessage('Generating session summary...');
+      
+      try {
+        const summary = await generateSessionSummary(messages, sessionDuration);
+        console.log('✅ Session summary generated');
+        
+        onEndSession({
+          duration: sessionDuration,
+          accuracy: 0,
+          notesPlayed: 0,
+          mistakes: [],
+          conversationSummary: summary
+        });
+      } catch (error) {
+        console.error('❌ Error generating summary:', error);
+        // Still call onEndSession even if summary generation fails
+        onEndSession({
+          duration: sessionDuration,
+          accuracy: 0,
+          notesPlayed: 0,
+          mistakes: [],
+          conversationSummary: 'Session summary generation failed.'
+        });
+      }
     }
   };
 
@@ -892,6 +913,65 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
   const testTTS = () => {
     console.log('🧪 Testing TTS...');
     generateTTS("Hello! This is a test of the text to speech system. Can you hear me?");
+  };
+
+  const generateSessionSummary = async (messages: Message[], duration: number): Promise<string> => {
+    if (!apiKey) {
+      console.warn('No API key available for summary generation');
+      return 'Session summary unavailable - API key not configured';
+    }
+
+    if (messages.length === 0) {
+      return 'No conversation recorded during this session.';
+    }
+
+    try {
+      // Format the conversation for the prompt
+      const conversationText = messages.map(msg => {
+        const role = msg.role === 'user' ? 'Student' : 'AI Instructor';
+        const time = msg.timestamp.toLocaleTimeString();
+        return `[${time}] ${role}: ${msg.content}`;
+      }).join('\n\n');
+
+      const prompt = `You are an AI music instructor. Please create a concise summary of this piano lesson session.
+
+Session Duration: ${Math.floor(duration / 60)} minutes ${duration % 60} seconds
+
+Conversation Log:
+${conversationText}
+
+Please provide a 2-3 paragraph summary that includes:
+1. What was taught/learned during the session
+2. Key progress made by the student
+3. Areas that may need more practice
+4. Overall assessment of the lesson
+
+Keep it encouraging and educational, written as if you're the instructor reflecting on the lesson.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to generate session summary.';
+    } catch (error) {
+      console.error('Error generating session summary:', error);
+      return 'Session summary generation failed. Please check your API key and try again.';
+    }
   };
 
   return (

@@ -18,6 +18,7 @@ interface SessionSummaryType {
     timestamp: number;
     note: string;
   }>;
+  conversationSummary?: string;
 }
 
 interface ChatMessage {
