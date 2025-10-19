@@ -1125,11 +1125,13 @@ You're Professor Melody's assistant sharing the reflections of the lessons with 
 Conversation Log:
 ${conversationText}
 
-Please provide a 2-3 paragraph summary that includes:
+Please provide a 2-3 lines ONLY summary that includes:
 1. What was taught/learned during the session in a concise manner
-2. Key progress made by the student in a a line
-3. Areas that may need more practice in a line
-4. Overall assessment of the lesson in a line
+2. Key progress made by the student in a concise manner 
+3. Areas that may need more practice in a concise manner
+4. Overall assessment of the lesson in a concise manner
+
+Make sure to keep the summary concise, short and to the point.
 `
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
