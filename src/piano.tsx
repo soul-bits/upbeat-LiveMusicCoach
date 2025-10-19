@@ -62,6 +62,7 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const [summaryAvatar, setSummaryAvatar] = useState<any>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isCheckInInProgress, setIsCheckInInProgress] = useState(false);
+  const [isTTSSpeaking, setIsTTSSpeaking] = useState(false);
 
   // Note detection state
   const [currentNote, setCurrentNote] = useState<DetectedNote | null>(null);
@@ -80,6 +81,7 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const currentResponseRef = useRef<string>('');
   const lessonStepRef = useRef<string>('idle');
   const isCheckInInProgressRef = useRef<boolean>(false);
+  const isTTSSpeakingRef = useRef<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -513,10 +515,14 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
 
       utterance.onstart = () => {
         console.log('🔊 TTS started speaking:', processedText.substring(0, 50) + '...');
+        setIsTTSSpeaking(true);
+        isTTSSpeakingRef.current = true;
       };
 
       utterance.onend = () => {
         console.log('🔊 TTS finished speaking');
+        setIsTTSSpeaking(false);
+        isTTSSpeakingRef.current = false;
       };
 
       utterance.onerror = (event) => {
@@ -526,6 +532,9 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
         } else {
           console.log('🔇 TTS interrupted (normal)');
         }
+        // Reset speaking state on error
+        setIsTTSSpeaking(false);
+        isTTSSpeakingRef.current = false;
       };
 
       // Speak the text
@@ -688,6 +697,12 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
     // Skip if a check-in is already in progress (use ref for interval callback)
     if (isCheckInInProgressRef.current) {
       console.warn('⚠️ Check-in skipped - Previous check-in still in progress');
+      return;
+    }
+
+    // Skip check-in during teaching if TTS is speaking
+    if (step === 'teaching' && isTTSSpeakingRef.current) {
+      console.warn('⚠️ Check-in skipped - TTS is currently speaking (teaching mode)');
       return;
     }
 
