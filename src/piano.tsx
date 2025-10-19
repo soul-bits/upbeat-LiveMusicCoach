@@ -43,7 +43,7 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const { selectedAvatar } = useAvatar();
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+  const apiKey = 'AIzaSyArNymd-xkyPh1j8QGLn9YziblxjULZeGA' || '';
   const [isConnected, setIsConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Not connected');
   const [currentResponse, setCurrentResponse] = useState('');
@@ -255,8 +255,33 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
               console.log(`${'='.repeat(80)}\n`);
               
               const finalText = currentResponseRef.current;
-              
+
               if (finalText) {
+                // Check for SESSION_COMPLETE marker to auto-end session
+                if (finalText.includes('SESSION_COMPLETE')) {
+                  console.log('🎉 SESSION_COMPLETE detected - ending session automatically');
+                  const displayText = finalText.replace('SESSION_COMPLETE - ', '').trim();
+
+                  setMessages(prev => [...prev, {
+                    role: 'model',
+                    content: displayText,
+                    timestamp: new Date()
+                  }]);
+                  vectaraLoggerRef.current.logAIResponse(displayText);
+                  generateTTS(displayText);
+
+                  // Wait 3 seconds to let the user read the message, then end session
+                  setTimeout(() => {
+                    console.log('⏰ Auto-ending session after 2-part completion');
+                    stopStreaming();
+                  }, 3000);
+
+                  currentResponseRef.current = '';
+                  setCurrentResponse('');
+                  setIsProcessing(false);
+                  return;
+                }
+
                 const statusMatch = finalText.match(/\[STATUS:(checking_keyboard|checking_hands|checking_hand_position|waiting_song|teaching|adjusting_position)\]/);
 
                 let displayText = finalText;
@@ -268,7 +293,7 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
 
                   console.log(`🎯 STATUS COMMAND DETECTED: ${newStep}`);
                   console.log(`📍 Current step: ${lessonStep} → New step: ${newStep}`);
-                  
+
                   if (newStep && newStep !== lessonStep) {
                     setLessonStep(newStep as any);
                   }
@@ -626,25 +651,29 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
         promptText = 'Look at the most recent video frame I sent. Describe EXACTLY what you see. Are there human hands visible in the frame? Are they actually touching the piano keyboard? Be honest - if you don\'t see hands, say so. If you see hands but they\'re not on the keyboard, say so. Only if you clearly see hands actually placed on the piano keyboard, respond with [STATUS:checking_hand_position]. Otherwise, describe what you actually see and respond with [STATUS:checking_hands].';
         break;
       case 'checking_hand_position':
-        promptText = 'Look at the current video frame carefully. I need you to count what you actually see. Left hand - how many fingers can you clearly see? (count: 1, 2, 3, 4, 5?). Right hand - how many fingers can you clearly see? (count: 1, 2, 3, 4, 5?). Tell me the exact number for each hand based on what you actually see. If you can clearly see 5 fingers on left and 5 on right, each on separate keys, respond with [STATUS:waiting_song]. Otherwise, tell me the exact count you see and respond with [STATUS:checking_hand_position].';
+        promptText = 'Look at the current video frame carefully. I need you to count what you actually see. Left hand - how many fingers can you clearly see? (count: 1, 2, 3, 4, 5?). Right hand - how many fingers can you clearly see? (count: 1, 2, 3, 4, 5?). Tell me the exact number for each hand based on what you actually see. If you can clearly see 5 fingers on left and 5 on right, each on separate keys, say "Perfect! Your hands are positioned correctly. Let\'s start learning Twinkle Twinkle Little Star! We\'ll learn just 2 parts of the song." Then IMMEDIATELY start teaching the first part of Twinkle Twinkle and respond with [STATUS:teaching]. Otherwise, tell me the exact count you see and respond with [STATUS:checking_hand_position].';
         break;
       case 'waiting_song':
         console.log('⏸️ Check-in skipped - waiting for song selection');
         return;
       case 'teaching':
-        promptText = `CRITICAL VISUAL CHECK during teaching:
+        promptText = `CRITICAL VISUAL CHECK during Twinkle Twinkle (2 PARTS ONLY):
 Look at the current video frame RIGHT NOW and describe EXACTLY what you see:
 
-1. HAND POSITION: Which keys are the student's fingers currently resting on or near?
-2. FINGER MOVEMENT: Do you see any finger pressing down on a key?
-3. SPECIFIC OBSERVATION: Describe the position - e.g., "I can see the right thumb on Middle C" or "I see the middle finger moving toward G"
+1. FINGER POSITION: Which specific key is the finger pressing? (e.g., "I see your thumb on Middle C")
+2. CORRECT KEY: Is it the RIGHT key for the current note in the sequence?
+3. PROGRESS: Which part are we on? Part 1 (C C G G A A G) or Part 2 (F F E E D D C)?
 
-Based on what you see:
-- If the student's hand position matches your last instruction: Confirm it! Say "Perfect! I can see [specific observation]. Let's continue!" and give the NEXT instruction, then respond with [STATUS:teaching]
-- If the position is wrong: Say "I see [what you actually see], but you should have [correct position]. Please adjust." then respond with [STATUS:teaching]
-- If you can't see the keyboard or hands clearly: Respond with [STATUS:adjusting_position]
+**VERIFY EACH NOTE BEFORE MOVING ON:**
+- Say what you SEE: "I can see your [finger] pressing [key name]"
+- If CORRECT: "Perfect! That's [note name]. Now press [next note]" then respond with [STATUS:teaching]
+- If WRONG key: "I see your finger on [wrong key], please move to [correct key]" then respond with [STATUS:teaching]
+- If can't see clearly: "I can't see which key you're pressing clearly" then respond with [STATUS:adjusting_position]
 
-Remember: You are ACTIVELY MONITORING their progress. Describe what you observe before giving the next instruction!`;
+**AFTER PART 2 COMPLETES (all notes C C G G A A G F F E E D D C):**
+- Say: "Excellent work! You've learned the first 2 parts of Twinkle Twinkle Little Star! That's all for today's lesson. Great job! SESSION_COMPLETE - The student has successfully learned 2 parts of Twinkle Twinkle."
+
+Remember: ONLY 2 parts! Verify EACH finger press visually. Be HONEST about what you see!`;
         break;
       case 'adjusting_position':
         promptText = 'Check the current video carefully. Describe EXACTLY what you see. Can you now clearly see BOTH the piano keyboard (with visible black and white keys) AND the student\'s hands (with visible fingers)? Is the image clear and not blurry? Be HONEST. If YES (everything clearly visible now), respond with [STATUS:teaching]. If NO or STILL unclear, respond with [STATUS:adjusting_position] and tell me specifically what\'s still wrong.';
