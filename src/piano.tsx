@@ -54,7 +54,20 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Piano Tutor'));
+  // === Simple de-dupe: skip identical model messages ===
+const lastDisplayedHashRef = useRef<string>('');
+    // tiny hash for de-duping message bodies
+    const djb2 = (str: string) => {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
+    return (h >>> 0).toString(36);
+    };
 
+    // normalize text for comparison (strip [STATUS:...] + compress whitespace)
+    const normalizeForHash = (s: string) =>
+    s.replace(/\[STATUS:[^\]]+\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   useEffect(() => {
     return () => {
       // Clean up resources without triggering session end
@@ -353,21 +366,27 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
 
                   console.log(`🎯 STATUS COMMAND DETECTED: ${newStep}`);
                   console.log(`📍 Current step: ${lessonStep} → New step: ${newStep}`);
+                    // Update step if provided
+                    if (newStep && newStep !== lessonStep) {
+                        setLessonStep(newStep as any);
+                    }
 
-                  // ✅ only update step and show message if it changed
-                  if (newStep !== lessonStep) {
-                    setLessonStep(newStep as any);
+                    // ✅ De-dupe: show only if text is new
+                    const normalized = normalizeForHash(displayText);
+                    const hash = djb2(normalized);
+
+                    if (hash === lastDisplayedHashRef.current) {
+                    console.log('🧽 Duplicate message (same text) — not displaying');
+                    } else {
                     setMessages(prev => [...prev, {
-                      role: 'model',
-                      content: displayText,
-                      timestamp: new Date()
+                        role: 'model',
+                        content: displayText,
+                        timestamp: new Date()
                     }]);
-
-                    // Log AI response to Vectara
+                                        // Log AI response to Vectara
                     vectaraLoggerRef.current.logAIResponse(displayText);
-                  } else {
-                    console.log('🔁 Step unchanged — skipping message display');
-                  }
+                    lastDisplayedHashRef.current = hash;
+                    }
                 } else {
                   // Fallback for responses without status commands
                   setMessages(prev => [...prev, {
