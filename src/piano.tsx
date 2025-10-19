@@ -568,14 +568,14 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-6xl font-bold text-white mb-2 flex items-center justify-center gap-3">
             <Music className="w-12 h-12" />
             AI Piano Tutor
           </h1>
-          <p className="text-purple-300 text-lg">Making music education accessible to everyone, anywhere.</p>
+          <p className="text-slate-300 text-lg">Making music education accessible to everyone, anywhere.</p>
         </div>
 
         {/* Connection Status */}
@@ -595,7 +595,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
               className={`px-6 py-3 rounded-lg font-medium transition-all ${
                 isConnected
                   ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
+                  : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white'
               }`}
             >
               {isConnected ? 'Disconnect' : 'Connect'}
@@ -603,7 +603,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
           </div>
           {isStreaming && (
             <div className="mt-3 pt-3 border-t border-white/10">
-              <p className="text-sm text-purple-300">
+              <p className="text-sm text-slate-300">
                 👀 Watching: {framesSent} frames
               </p>
             </div>
@@ -703,7 +703,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                   </div>
                   
                   {lastFrameTime && (
-                    <div className="bg-purple-600 px-3 py-1 rounded-full shadow-lg">
+                    <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
                       <span className="text-white text-xs">Last: {lastFrameTime}</span>
                     </div>
                   )}
@@ -738,7 +738,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                 className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-medium transition-all text-lg ${
                   isStreaming
                     ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed'
+                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed'
                 }`}
               >
                 {isStreaming ? (
@@ -761,28 +761,28 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                     <button
                       onClick={() => quickSongRequest("Twinkle Twinkle Little Star")}
                       disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                        className="px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       ⭐ Twinkle Twinkle
                     </button>
                     <button
                       onClick={() => quickSongRequest("Happy Birthday")}
                       disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                        className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       🎂 Happy Birthday
                     </button>
                     <button
                       onClick={() => quickSongRequest("Mary Had a Little Lamb")}
                       disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                        className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       🐑 Mary's Lamb
                     </button>
                     <button
                       onClick={() => quickSongRequest("Jingle Bells")}
                       disabled={isProcessing}
-                      className="px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                        className="px-4 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       🔔 Jingle Bells
                     </button>
@@ -815,8 +815,8 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                       <div
                         className={`p-4 rounded-lg shadow-lg ${
                           msg.role === 'user'
-                            ? 'bg-gradient-to-r from-purple-600 to-blue-600'
-                            : 'bg-gradient-to-r from-blue-600/40 to-purple-600/40 backdrop-blur'
+                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600'
+                            : 'bg-gradient-to-r from-blue-600/40 to-cyan-600/40 backdrop-blur'
                         }`}
                       >
                         <p className="text-white whitespace-pre-wrap leading-relaxed">{msg.content}</p>
@@ -829,7 +829,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
 
                   {currentResponse && (
                     <div className="mr-8">
-                      <div className="p-4 rounded-lg bg-gradient-to-r from-blue-600/40 to-purple-600/40 backdrop-blur shadow-lg">
+                      <div className="p-4 rounded-lg bg-gradient-to-r from-blue-600/40 to-cyan-600/40 backdrop-blur shadow-lg">
                         <div className="flex items-start gap-2">
                           <Loader2 className="w-4 h-4 text-blue-400 animate-spin mt-1 flex-shrink-0" />
                           <p className="text-white whitespace-pre-wrap leading-relaxed">{currentResponse}</p>
@@ -865,7 +865,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                     }
                   }}
                   disabled={isProcessing}
-                  className="px-5 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed"
+                  className="px-5 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg transition-all disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed"
                 >
                   <Send className="w-5 h-5" />
                 </button>
@@ -887,8 +887,8 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                 <li>• Shows you which keys to press</li>
               </ul>
             </div>
-            <div className="bg-purple-500/20 p-4 rounded-lg">
-              <p className="font-medium text-purple-300 mb-2">🎵 Audio Feedback:</p>
+            <div className="bg-cyan-500/20 p-4 rounded-lg">
+              <p className="font-medium text-cyan-300 mb-2">🎵 Audio Feedback:</p>
               <ul className="space-y-1 text-xs">
                 <li>• Hears the notes you play</li>
                 <li>• Confirms correct notes</li>
@@ -896,8 +896,8 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                 <li>• Checks rhythm and timing</li>
               </ul>
             </div>
-            <div className="bg-pink-500/20 p-4 rounded-lg">
-              <p className="font-medium text-pink-300 mb-2">📚 Step-by-Step:</p>
+            <div className="bg-emerald-500/20 p-4 rounded-lg">
+              <p className="font-medium text-emerald-300 mb-2">📚 Step-by-Step:</p>
               <ul className="space-y-1 text-xs">
                 <li>• Breaks songs into small parts</li>
                 <li>• Teaches one hand at a time</li>

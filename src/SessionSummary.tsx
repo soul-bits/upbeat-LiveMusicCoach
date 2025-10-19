@@ -84,7 +84,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
   const performance = getPerformanceLevel(summary.accuracy);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -99,7 +99,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
             <Trophy className="w-12 h-12 text-yellow-400" />
             Session Complete!
           </h1>
-          <p className="text-purple-300 text-lg">
+          <p className="text-slate-300 text-lg">
             Great work! Here's how you performed.
           </p>
         </motion.div>
@@ -114,22 +114,22 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
             <div className="grid md:grid-cols-4 gap-6">
               <div className="text-center">
                 <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                <p className="text-sm text-purple-300 mb-1">Duration</p>
+                <p className="text-sm text-slate-300 mb-1">Duration</p>
                 <p className="text-2xl text-white">{formatTime(summary.duration)}</p>
               </div>
               <div className="text-center">
                 <Target className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                <p className="text-sm text-purple-300 mb-1">Accuracy</p>
+                <p className="text-sm text-slate-300 mb-1">Accuracy</p>
                 <p className="text-2xl text-white">{summary.accuracy}%</p>
               </div>
               <div className="text-center">
                 <CheckCircle2 className="w-8 h-8 text-green-400 mx-auto mb-2" />
-                <p className="text-sm text-purple-300 mb-1">Notes Played</p>
+                <p className="text-sm text-slate-300 mb-1">Notes Played</p>
                 <p className="text-2xl text-white">{summary.notesPlayed}</p>
               </div>
               <div className="text-center">
                 <XCircle className="w-8 h-8 text-red-400 mx-auto mb-2" />
-                <p className="text-sm text-purple-300 mb-1">Corrections</p>
+                <p className="text-sm text-slate-300 mb-1">Corrections</p>
                 <p className="text-2xl text-white">{summary.mistakes.length}</p>
               </div>
             </div>
@@ -137,7 +137,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
             <div className="w-full h-px bg-white/20 my-6"></div>
 
             <div className="text-center">
-              <p className="text-sm text-purple-300 mb-2">Performance Level</p>
+              <p className="text-sm text-slate-300 mb-2">Performance Level</p>
               <div className={`text-3xl mb-2 ${performance.color}`}>
                 {performance.icon} {performance.text}
               </div>
@@ -188,7 +188,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <p className="text-sm text-purple-300">
+                  <p className="text-sm text-slate-300">
                     Focus on practicing with the fingers that had the most errors.
                   </p>
                 </>
@@ -196,7 +196,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                 <div className="h-64 flex items-center justify-center">
                   <div className="text-center">
                     <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-2" />
-                    <p className="text-purple-300">Perfect session! No errors detected.</p>
+                    <p className="text-slate-300">Perfect session! No errors detected.</p>
                   </div>
                 </div>
               )}
@@ -227,14 +227,14 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="text-sm text-white font-medium">{drill.title}</h3>
-                      <div className="px-2 py-1 bg-purple-500/20 text-purple-300 border border-purple-400/30 rounded text-xs">
+                      <div className="px-2 py-1 bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 rounded text-xs">
                         {drill.difficulty}
                       </div>
                     </div>
-                    <p className="text-sm text-purple-300 mb-2">{drill.description}</p>
+                    <p className="text-sm text-slate-300 mb-2">{drill.description}</p>
                     <div className="flex items-center gap-2">
                       <Clock className="w-3 h-3 text-blue-400" />
-                      <span className="text-xs text-purple-300">{drill.duration}</span>
+                      <span className="text-xs text-slate-300">{drill.duration}</span>
                     </div>
                   </motion.div>
                 ))}
@@ -251,7 +251,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
         >
           <div className="p-6 mt-6 bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20">
             <h2 className="mb-4 text-white text-xl font-semibold">Export Your Practice Plan</h2>
-            <p className="text-purple-300 mb-4">
+            <p className="text-slate-300 mb-4">
               Save your recommended drills and never forget to practice!
             </p>
             <div className="flex flex-wrap gap-3">
@@ -278,16 +278,16 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <div className="p-8 mt-6 bg-gradient-to-br from-blue-500/20 to-purple-500/20 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 text-center">
+          <div className="p-8 mt-6 bg-gradient-to-br from-blue-500/20 to-cyan-500/20 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 text-center">
             <TrendingUp className="w-12 h-12 text-blue-400 mx-auto mb-4" />
             <h2 className="mb-3 text-white text-2xl font-semibold">Keep the Momentum Going!</h2>
-            <p className="text-purple-300 mb-6 max-w-2xl mx-auto">
+            <p className="text-slate-300 mb-6 max-w-2xl mx-auto">
               Your AI tutor will remind you tomorrow if you skip practice. Consistency is key to mastering the piano!
             </p>
             <div className="flex flex-wrap gap-3 justify-center">
               <button 
                 onClick={onNewSession}
-                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
+                className="px-8 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all flex items-center gap-2"
               >
                 Start Another Session
               </button>
@@ -315,7 +315,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                 <Trophy className="w-8 h-8 text-yellow-400" />
                 <div className="text-left">
                   <h3 className="text-white font-semibold">Achievement Unlocked!</h3>
-                  <p className="text-sm text-purple-300">Perfect Practice Session - 90%+ Accuracy</p>
+                  <p className="text-sm text-slate-300">Perfect Practice Session - 90%+ Accuracy</p>
                 </div>
               </div>
             </div>

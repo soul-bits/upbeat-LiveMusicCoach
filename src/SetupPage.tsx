@@ -46,12 +46,12 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative overflow-hidden">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-yellow-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/5 rounded-full blur-3xl"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-cyan-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-emerald-400/5 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative z-10 p-4 sm:p-6 lg:p-8">
@@ -66,7 +66,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
             <Button 
               variant="ghost" 
               onClick={onBack}
-              className="mb-8 text-purple-300 hover:text-yellow-400 hover:bg-white/10 transition-all duration-300"
+              className="mb-8 text-slate-300 hover:text-cyan-400 hover:bg-white/10 transition-all duration-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
@@ -80,7 +80,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
               <Sparkles className="w-8 h-8 text-yellow-400 ml-3" />
             </div>
             
-            <p className="text-purple-200 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed">
+            <p className="text-slate-300 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed">
               Each tutor has a unique personality and teaching style. Pick the one that motivates you to learn!
             </p>
 
@@ -88,7 +88,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
             <div className="mt-8 flex items-center justify-center">
               <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-full px-6 py-3 border border-white/20">
                 <Music className="w-5 h-5 text-yellow-400" />
-                <span className="text-purple-200 font-medium">Choose your tutor to get started</span>
+                <span className="text-slate-300 font-medium">Choose your tutor to get started</span>
                 <Sparkles className="w-5 h-5 text-yellow-400" />
               </div>
             </div>
@@ -131,7 +131,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                           <motion.div
                             initial={{ scale: 0, rotate: -180 }}
                             animate={{ scale: 1, rotate: 0 }}
-                            className="absolute inset-0 rounded-full border-8 border-yellow-400"
+                            className="absolute inset-0 rounded-full border-8 border-teal-400 shadow-xl shadow-teal-400/70"
                           />
                         )}
                       </div>
@@ -141,7 +141,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="absolute -top-2 -right-2 w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center shadow-xl"
+                          className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-r from-teal-400 to-cyan-500 rounded-full flex items-center justify-center shadow-xl border-3 border-white"
                         >
                           <Check className="w-6 h-6 text-white" />
                         </motion.div>
@@ -157,7 +157,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                       <div className="mb-6">
                         <Badge 
                           variant="secondary" 
-                          className="text-sm bg-gradient-to-r from-purple-100 to-blue-100 text-purple-800 border-purple-200 px-4 py-2"
+                          className="text-sm bg-gradient-to-r from-cyan-100 to-blue-100 text-slate-800 border-cyan-200 px-4 py-2"
                         >
                           <Star className="w-4 h-4 mr-2" />
                           {avatarData[currentIndex].personality}
@@ -177,8 +177,8 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                           onClick={() => setSelectedAvatar(avatarData[currentIndex].id)}
                           className={`w-full py-4 text-lg font-semibold transition-all duration-300 ${
                             selectedAvatar === avatarData[currentIndex].id
-                              ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-yellow-900 shadow-xl"
-                              : "bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl"
+                              ? "bg-gradient-to-r from-teal-400 to-cyan-500 text-white shadow-xl border-3 border-teal-300"
+                              : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl"
                           }`}
                         >
                           {selectedAvatar === avatarData[currentIndex].id ? (
@@ -201,16 +201,16 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                 {/* Navigation Arrows */}
                 <Button
                   onClick={prevAvatar}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 hover:bg-white shadow-lg hover:shadow-xl border-2 border-gray-200 hover:border-yellow-400 transition-all duration-300"
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-black/90 hover:bg-black shadow-lg hover:shadow-xl border-2 border-white/20 hover:border-cyan-400 transition-all duration-300"
                 >
-                  <ChevronLeft className="w-6 h-6 text-gray-700" />
+                  <ChevronLeft className="w-6 h-6 text-white" />
                 </Button>
                 
                 <Button
                   onClick={nextAvatar}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 hover:bg-white shadow-lg hover:shadow-xl border-2 border-gray-200 hover:border-yellow-400 transition-all duration-300"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 w-12 h-12 rounded-full bg-black/90 hover:bg-black shadow-lg hover:shadow-xl border-2 border-white/20 hover:border-cyan-400 transition-all duration-300"
                 >
-                  <ChevronRight className="w-6 h-6 text-gray-700" />
+                  <ChevronRight className="w-6 h-6 text-white" />
                 </Button>
               </div>
 
@@ -224,8 +224,8 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                     whileTap={{ scale: 0.9 }}
                     className={`relative w-16 h-16 rounded-full overflow-hidden border-4 transition-all duration-300 ${
                       currentIndex === index
-                        ? "border-yellow-400 shadow-lg shadow-yellow-400/30 scale-110"
-                        : "border-gray-300 hover:border-yellow-300"
+                        ? "border-teal-400 shadow-xl shadow-teal-400/70 scale-110 ring-4 ring-teal-200"
+                        : "border-gray-300 hover:border-teal-300"
                     }`}
                   >
                     <ImageWithFallback
@@ -234,8 +234,8 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                       className="w-full h-full object-cover"
                     />
                     {selectedAvatar === avatar.id && (
-                      <div className="absolute inset-0 bg-yellow-400/20 flex items-center justify-center">
-                        <Check className="w-4 h-4 text-yellow-600" />
+                      <div className="absolute inset-0 bg-teal-400/40 flex items-center justify-center">
+                        <Check className="w-4 h-4 text-white drop-shadow-lg" />
                       </div>
                     )}
                   </motion.button>
@@ -250,8 +250,8 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                     onClick={() => goToAvatar(index)}
                     className={`w-3 h-3 rounded-full transition-all duration-300 ${
                       currentIndex === index
-                        ? "bg-yellow-400 scale-125"
-                        : "bg-gray-300 hover:bg-yellow-300"
+                        ? "bg-teal-400 scale-125 shadow-xl shadow-teal-400/70"
+                        : "bg-gray-300 hover:bg-teal-300"
                     }`}
                   />
                 ))}
@@ -269,7 +269,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
             <Button
               variant="outline"
               onClick={onBack}
-              className="w-full sm:w-auto border-2 border-white/30 hover:border-yellow-400 text-white hover:text-yellow-400 hover:bg-white/10 transition-all duration-300 px-8 py-3"
+              className="w-full sm:w-auto border-2 border-white/30 hover:border-cyan-400 text-white hover:text-cyan-400 hover:bg-white/10 transition-all duration-300 px-8 py-3"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
@@ -278,7 +278,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
             <Button
               onClick={handleComplete}
               disabled={!isStepValid()}
-              className="w-full sm:w-auto bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 px-8 py-3 shadow-lg hover:shadow-xl disabled:shadow-none"
+              className="w-full sm:w-auto bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 px-8 py-3 shadow-lg hover:shadow-xl disabled:shadow-none"
             >
               {isStepValid() ? (
                 <>

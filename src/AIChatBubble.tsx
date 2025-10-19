@@ -115,20 +115,20 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
           className="mb-4 w-80 h-96 bg-white/10 backdrop-blur-lg rounded-xl shadow-2xl border border-white/20 overflow-hidden"
         >
           {/* Chat Header */}
-          <div className="p-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-b border-white/10">
+          <div className="p-4 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border-b border-white/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
                   <Bot className="w-4 h-4 text-white" />
                 </div>
                 <div>
                   <h3 className="text-white text-sm font-semibold">Melody</h3>
-                  <p className="text-purple-300 text-xs">AI Piano Coach</p>
+                  <p className="text-slate-300 text-xs">AI Piano Coach</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsChatOpen(false)}
-                className="text-purple-300 hover:text-white transition-colors"
+                className="text-slate-300 hover:text-white transition-colors"
               >
                 <XCircle className="w-5 h-5" />
               </button>
@@ -145,18 +145,18 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
                 <div
                   className={`max-w-xs px-3 py-2 rounded-lg text-xs ${
                     message.role === 'user'
-                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white'
+                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white'
                       : 'bg-white/10 text-white border border-white/20'
                   }`}
                 >
                   <div 
-                    className="prose prose-sm max-w-none [&_strong]:text-white [&_em]:text-purple-200 [&_ul]:text-purple-200 [&_li]:text-purple-200 [&_p]:text-white [&_*]:text-white"
+                    className="prose prose-sm max-w-none [&_strong]:text-white [&_em]:text-slate-200 [&_ul]:text-slate-200 [&_li]:text-slate-200 [&_p]:text-white [&_*]:text-white"
                     dangerouslySetInnerHTML={{ 
                       __html: marked(message.content, { breaks: true })
                     }}
                   />
                   <p className={`text-xs mt-1 ${
-                    message.role === 'user' ? 'text-purple-200' : 'text-purple-300'
+                    message.role === 'user' ? 'text-slate-200' : 'text-slate-300'
                   }`}>
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -164,10 +164,10 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
                   {/* Show context for assistant messages */}
                   {message.role === 'assistant' && message.context && message.context.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-white/20">
-                      <p className="text-xs font-medium text-purple-200 mb-1">Based on:</p>
+                      <p className="text-xs font-medium text-slate-200 mb-1">Based on:</p>
                       <div className="space-y-1">
                         {message.context.slice(0, 2).map((ctx, idx) => (
-                          <div key={idx} className="text-xs text-purple-300">
+                          <div key={idx} className="text-xs text-slate-300">
                             <span className="font-medium">{ctx.metadata.timestamp}:</span>{' '}
                             User {ctx.metadata.userAction} → {ctx.metadata.tutorResponse}
                           </div>
@@ -183,7 +183,7 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
               <div className="flex justify-start">
                 <div className="bg-white/10 text-white px-3 py-2 rounded-lg border border-white/20">
                   <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-purple-300"></div>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-cyan-300"></div>
                     <span className="text-xs">Thinking...</span>
                   </div>
                 </div>
@@ -200,13 +200,13 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask Melody..."
-                className="flex-1 bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-transparent text-xs"
+                className="flex-1 bg-white/5 border border-white/20 rounded-lg px-3 py-2 text-white placeholder-slate-300 focus:outline-none focus:ring-1 focus:ring-cyan-500 focus:border-transparent text-xs"
                 disabled={isLoading}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!chatInput.trim() || isLoading}
-                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-lg transition-all disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white rounded-lg transition-all disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <Send className="w-3 h-3" />
               </button>
@@ -218,7 +218,7 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
       {/* Floating Button */}
       <motion.button
         onClick={() => setIsChatOpen(!isChatOpen)}
-        className="w-14 h-14 bg-gradient-to-br from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110"
+        className="w-14 h-14 bg-gradient-to-br from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
       >
