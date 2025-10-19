@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import PianoTutor from './piano';
 import { SessionSummary, SessionSummaryType } from './SessionSummary';
+import { LandingPage } from './LandingPage';
+import { SetupPage, SetupConfig } from './SetupPage';
 
-type AppPage = 'piano' | 'summary';
+type AppPage = 'landing' | 'setup' | 'piano' | 'summary';
 
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<AppPage>('piano');
+  const [currentPage, setCurrentPage] = useState<AppPage>('landing');
   const [sessionData, setSessionData] = useState<SessionSummaryType | null>(null);
+  const [setupConfig, setSetupConfig] = useState<SetupConfig | null>(null);
 
   // Mock session data - in a real app, this would come from the piano session
   const generateMockSessionData = (): SessionSummaryType => {
@@ -24,20 +27,49 @@ const App: React.FC = () => {
     };
   };
 
+  const handleStartPlaying = () => {
+    setCurrentPage('setup');
+  };
+
+  const handleSetupComplete = (config: SetupConfig) => {
+    setSetupConfig(config);
+    setCurrentPage('piano');
+  };
+
+  const handleSetupBack = () => {
+    setCurrentPage('landing');
+  };
+
   const handleEndSession = (sessionData: SessionSummaryType) => {
     setSessionData(sessionData);
     setCurrentPage('summary');
   };
 
   const handleBackToHome = () => {
-    setCurrentPage('piano');
+    setCurrentPage('landing');
     setSessionData(null);
+    setSetupConfig(null);
   };
 
   const handleNewSession = () => {
     setCurrentPage('piano');
     setSessionData(null);
   };
+
+  if (currentPage === 'landing') {
+    return (
+      <LandingPage onStartPlaying={handleStartPlaying} />
+    );
+  }
+
+  if (currentPage === 'setup') {
+    return (
+      <SetupPage 
+        onComplete={handleSetupComplete}
+        onBack={handleSetupBack}
+      />
+    );
+  }
 
   if (currentPage === 'summary' && sessionData) {
     return (
