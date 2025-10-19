@@ -11,6 +11,9 @@ interface Message {
   content: string;
   timestamp: Date;
 }
+const USE_ACTIVITY_WINDOWS = true; // ✅ recommended for reliable vision grounding
+
+const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
 
 interface MusicInstructorProps {
   onEndSession?: (sessionData: {
@@ -58,6 +61,8 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const [lessonStep, setLessonStep] = useState<'idle' | 'checking_keyboard' | 'checking_hands' | 'checking_hand_position' | 'waiting_song' | 'teaching' | 'adjusting_position'>('idle');
   const [summaryAvatar, setSummaryAvatar] = useState<any>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isCheckInInProgress, setIsCheckInInProgress] = useState(false);
+  const [isTTSSpeaking, setIsTTSSpeaking] = useState(false);
 
   // Note detection state
   const [currentNote, setCurrentNote] = useState<DetectedNote | null>(null);
@@ -75,13 +80,16 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const checkInIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentResponseRef = useRef<string>('');
   const lessonStepRef = useRef<string>('idle');
+  const isCheckInInProgressRef = useRef<boolean>(false);
+  const isTTSSpeakingRef = useRef<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Music Instructor'));
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const noteDetectorRef = useRef<NoteDetectorWrapper | null>(null);
-  
+  const frameCounterRef = useRef(0);
+
   const lastDisplayedHashRef = useRef<string>('');
   
   const djb2 = (str: string) => {
@@ -195,6 +203,10 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
             generationConfig: {
               responseModalities: ["TEXT"],
               temperature: 0.7
+            },            
+            realtimeInputConfig: {
+              turnCoverage: "TURN_INCLUDES_ALL_INPUT",
+              ...(USE_ACTIVITY_WINDOWS ? { automaticActivityDetection: { disabled: true } } : {})
             },
             systemInstruction: {
               parts: [{
@@ -332,6 +344,8 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
               currentResponseRef.current = '';
               setCurrentResponse('');
               setIsProcessing(false);
+              setIsCheckInInProgress(false); // Reset check-in flag when response is complete
+              isCheckInInProgressRef.current = false; // Also update ref
             }
           }
 
@@ -501,10 +515,14 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
 
       utterance.onstart = () => {
         console.log('🔊 TTS started speaking:', processedText.substring(0, 50) + '...');
+        setIsTTSSpeaking(true);
+        isTTSSpeakingRef.current = true;
       };
 
       utterance.onend = () => {
         console.log('🔊 TTS finished speaking');
+        setIsTTSSpeaking(false);
+        isTTSSpeakingRef.current = false;
       };
 
       utterance.onerror = (event) => {
@@ -514,6 +532,9 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
         } else {
           console.log('🔇 TTS interrupted (normal)');
         }
+        // Reset speaking state on error
+        setIsTTSSpeaking(false);
+        isTTSSpeakingRef.current = false;
       };
 
       // Speak the text
@@ -628,16 +649,60 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
     try {
       wsRef.current.send(JSON.stringify(message));
       setFramesSent(prev => prev + 1);
+      frameCounterRef.current += 1;
       setLastFrameTime(new Date().toLocaleTimeString());
       console.log('📹 Frame sent successfully at', new Date().toLocaleTimeString(), '| Total frames:', framesSent + 1, '| Size:', frameData.length, 'bytes');
+
+      // Disabled: Every-3-frames ping can cause multiple responses and conflicts with check-ins
+      // The regular check-in interval (every 11 seconds) is sufficient for monitoring
+      /*
+      if (frameCounterRef.current % 3 === 0) {
+        wsRef.current.send(JSON.stringify({
+          clientContent: {
+            turns: [{ role: 'user', parts: [{ text:
+              'Use the most recent frames you just received to judge the current action. Keep replies short. [STATUS:teaching]'
+            }]}],
+            turnComplete: true
+          }
+        }));
+      }
+      */
     } catch (error) {
       console.error('❌ Error sending frame:', error);
     }
   };
 
+  const checkInWithFreshFrame = async (promptText: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    // Simplified approach: Just send one fresh frame then the prompt
+    // Activity windows can sometimes cause multiple responses
+    sendRealtimeFrame();
+    await sleep(200); // Give Gemini time to process the frame
+
+    wsRef.current.send(JSON.stringify({
+      clientContent: {
+        turns: [{ role: 'user', parts: [{ text: promptText }]}],
+        turnComplete: true
+      }
+    }));
+  };
+
   const sendCheckInMessage = (step: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.warn('⚠️ Check-in skipped - WebSocket not ready');
+      return;
+    }
+
+    // Skip if a check-in is already in progress (use ref for interval callback)
+    if (isCheckInInProgressRef.current) {
+      console.warn('⚠️ Check-in skipped - Previous check-in still in progress');
+      return;
+    }
+
+    // Skip check-in during teaching if TTS is speaking
+    if (step === 'teaching' && isTTSSpeakingRef.current) {
+      console.warn('⚠️ Check-in skipped - TTS is currently speaking (teaching mode)');
       return;
     }
 
@@ -688,16 +753,11 @@ Remember: ONLY 2 parts! Verify EACH finger press visually. Be HONEST about what 
       console.log(`💬 Prompt: "${promptText}"`);
       console.log(`${'='.repeat(80)}\n`);
 
-      const message = {
-        clientContent: {
-          turns: [{
-            role: 'user',
-            parts: [{ text: promptText }]
-          }],
-          turnComplete: true
-        }
-      };
-      wsRef.current.send(JSON.stringify(message));
+      setIsCheckInInProgress(true); // Mark check-in as in progress
+      isCheckInInProgressRef.current = true; // Also update ref
+
+      // Use checkInWithFreshFrame for better video grounding
+      void checkInWithFreshFrame(promptText);
     }
   };
 
@@ -788,6 +848,7 @@ Remember: ONLY 2 parts! Verify EACH finger press visually. Be HONEST about what 
 
       setIsStreaming(true);
       setFramesSent(0);
+      frameCounterRef.current = 0;
       setLessonStep('checking_keyboard');
 
       const now = new Date();
@@ -841,7 +902,7 @@ Remember: ONLY 2 parts! Verify EACH finger press visually. Be HONEST about what 
         sendRealtimeFrame();
       }, streamInterval);
 
-      console.log('🔄 Starting check-in interval: 10000ms');
+      console.log('🔄 Starting check-in interval: 8000ms');
       checkInIntervalRef.current = setInterval(() => {
         const currentStep = lessonStepRef.current;
         console.log('⏰ Check-in triggered - step:', currentStep);
@@ -851,7 +912,7 @@ Remember: ONLY 2 parts! Verify EACH finger press visually. Be HONEST about what 
         }
 
         sendCheckInMessage(currentStep);
-      }, 10000);
+      }, 11000);
 
     } catch (error) {
       console.error('❌ Error starting stream:', error);
