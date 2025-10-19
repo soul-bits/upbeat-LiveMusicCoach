@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Video, Square, Mic, Send, Loader2, Music } from 'lucide-react';
+import { Video, Square, Mic, Send, Loader2, Music, FlipHorizontal } from 'lucide-react';
 import VectaraLogger from './vectaraLogger';
 import { useAvatar } from './AvatarContext';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -62,6 +62,9 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const [currentNote, setCurrentNote] = useState<DetectedNote | null>(null);
   const [detectedNotes, setDetectedNotes] = useState<DetectedNote[]>([]);
   const [isNoteDetectionActive, setIsNoteDetectionActive] = useState(false);
+
+  // Camera flip state
+  const [isCameraFlipped, setIsCameraFlipped] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1309,6 +1312,10 @@ Please provide a 2-3 paragraph summary that includes:
                 muted
                 playsInline
                 className="w-full h-full object-cover"
+                style={{
+                  transform: isCameraFlipped ? 'scaleX(-1)' : 'scaleX(1)',
+                  transition: 'transform 0.3s ease-in-out'
+                }}
               />
               <canvas ref={canvasRef} className="hidden" />
 
@@ -1334,7 +1341,7 @@ Please provide a 2-3 paragraph summary that includes:
                         {lessonStep === 'adjusting_position' ? '⚠️ ADJUST' : 'TEACHING'}
                       </span>
                     </div>
-                    
+
                     {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && (
                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
                         isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
@@ -1346,21 +1353,34 @@ Please provide a 2-3 paragraph summary that includes:
                       </div>
                     )}
                   </div>
-                  
-                  {lastFrameTime && (
-                    <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
-                      <span className="text-white text-xs">Last: {lastFrameTime}</span>
-                    </div>
-                  )}
-                  
-                  {sessionDuration > 0 && (
-                    <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
-                      <span className="text-white text-xs">
-                        Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
-                      </span>
-                    </div>
-                  )}
+
+                  <div className="flex flex-col gap-2 items-end">
+                    {lastFrameTime && (
+                      <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
+                        <span className="text-white text-xs">Last: {lastFrameTime}</span>
+                      </div>
+                    )}
+
+                    {sessionDuration > 0 && (
+                      <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
+                        <span className="text-white text-xs">
+                          Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+              )}
+
+              {/* Camera Flip Button */}
+              {isStreaming && (
+                <button
+                  onClick={() => setIsCameraFlipped(!isCameraFlipped)}
+                  className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur flex items-center justify-center shadow-lg border-2 border-white/30 hover:border-cyan-400 transition-all duration-300 group"
+                  title="Flip camera horizontally"
+                >
+                  <FlipHorizontal className="w-5 h-5 text-white group-hover:text-cyan-400 transition-colors" />
+                </button>
               )}
             </div>
 
