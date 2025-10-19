@@ -56,3 +56,4 @@ export const AvatarProvider: React.FC<AvatarProviderProps> = ({ children }) => {
     </AvatarContext.Provider>
   );
 };
+
