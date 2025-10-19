@@ -2,6 +2,10 @@
 
 An AI-powered music learning platform that makes music education accessible to everyone, anywhere, anytime. Built on Google's Gemini AI, it offers real-time, personalized instruction that adapts to your skill level and learning pace, breaking down barriers to music education.
 
+## 🎬 Demo
+
+Watch Upbeat in action: [Demo Video](https://drive.google.com/file/d/1X1ZXaVsGqqkAl7PR0WpHijIpk39jgPL2/view?usp=drive_link)
+
 ## Project Description
 
 **Upbeat** is a revolutionary AI-powered music education platform that democratizes access to quality music instruction. Using advanced computer vision and real-time audio processing, the platform provides personalized piano tutoring that can see your hands, hear your playing, and offer instant feedback—just like having a personal music teacher available 24/7.
