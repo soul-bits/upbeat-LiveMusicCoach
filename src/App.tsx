@@ -4,8 +4,9 @@ import { SessionSummary, SessionSummaryType } from './SessionSummary';
 import { LandingPage } from './LandingPage';
 import { AvatarProvider } from './AvatarContext';
 import { LoadingTransition } from './LoadingTransition';
+import NoteDetectionTest from './NoteDetectionTest';
 
-type AppPage = 'landing' | 'piano' | 'loading' | 'summary';
+type AppPage = 'landing' | 'piano' | 'loading' | 'summary' | 'note-test';
 
 const AppContent: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<AppPage>('landing');
@@ -67,12 +68,21 @@ const AppContent: React.FC = () => {
     setSessionData(null);
   };
 
+  const handleNoteTest = () => {
+    setCurrentPage('note-test');
+  };
+
   if (currentPage === 'landing') {
     return (
-      <LandingPage onStartPlaying={handleStartPlaying} />
+      <LandingPage onStartPlaying={handleStartPlaying} onNoteTest={handleNoteTest} />
     );
   }
 
+  if (currentPage === 'note-test') {
+    return (
+      <NoteDetectionTest />
+    );
+  }
 
   if (currentPage === 'loading') {
     return (

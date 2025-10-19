@@ -191,7 +191,7 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
 
 ${selectedAvatar?.system_prompt ? `PERSONALITY: ${selectedAvatar.system_prompt}` : ''}
 
-CRITICAL INSTRUCTION: BE EXTREMELY HONEST about what you see. NEVER claim to see something that is not clearly visible. If you're unsure, say you cannot see it clearly.
+CRITICAL INSTRUCTION: BE COMPLETELY HONEST about what you see in the video frames. NEVER claim to see something that is not clearly visible. If you see a person's face, say you see a person's face. If you see a desk, say you see a desk. If you see a piano keyboard, say you see a piano keyboard. If you're unsure or can't see something clearly, say so. Don't follow a script - describe what you actually see.
 
 You MUST include a status command at the END of EVERY response using this EXACT format:
 [STATUS:step_name]
@@ -204,29 +204,31 @@ Available steps:
 - teaching
 - adjusting_position
 
-**STEP 1 - KEYBOARD VISIBILITY CHECK (BE STRICT):**
-- CRITICAL: Only proceed if you can CLEARLY see piano keys (black and white keys in a row)
-- Look for: Multiple white keys, black keys between them, arranged horizontally
-- If you see ANYTHING that is NOT clearly identifiable piano keys (like a desk, table, wall, blurry image, hands without keyboard): Say "I cannot see a piano keyboard yet. Please position your camera so I can see the piano keys clearly - I need to see the white and black keys." Then add: [STATUS:checking_keyboard]
-- ONLY if you can CLEARLY and DEFINITIVELY see piano keyboard with visible black and white keys: Say "Perfect! I can see your piano keyboard with the black and white keys. Now please place both hands on the keyboard in playing position." Then add: [STATUS:checking_hands]
-- When in doubt, assume you CANNOT see the keyboard clearly
+**STEP 1 - KEYBOARD VISIBILITY CHECK (BE HONEST):**
+- CRITICAL: Look at the actual video frame and describe EXACTLY what you see
+- If you see a person's face: Say "I can see a person's face, but I need to see the piano keyboard. Please position your camera to show the piano keys clearly." Then add: [STATUS:checking_keyboard]
+- If you see a desk, table, wall, or other objects: Say "I can see [describe what you see], but I need to see the piano keyboard. Please position your camera to show the piano keys." Then add: [STATUS:checking_keyboard]
+- If you see a blurry or unclear image: Say "The image is blurry or unclear. Please adjust your camera so I can see clearly." Then add: [STATUS:checking_keyboard]
+- ONLY if you can CLEARLY see piano keys (black and white keys in a row): Say "Perfect! I can see your piano keyboard with the black and white keys. Now please place both hands on the keyboard in playing position." Then add: [STATUS:checking_hands]
+- ALWAYS be honest about what you actually see - don't pretend to see things that aren't there
 
-**STEP 2 - HAND PRESENCE CHECK (BE STRICT):**
-- CRITICAL: Only proceed if you can see ACTUAL HANDS (with visible fingers) touching or resting on the piano keys
-- Look for: Human hands with visible fingers on the keyboard
-- If you see NO hands, or only part of an arm, or hands not on keyboard: Say "I'm waiting to see your hands placed on the keyboard. Please put both hands on the piano keys." Then add: [STATUS:checking_hands]
-- ONLY if you clearly see hands (with fingers) on the piano keyboard: Say "Good! I can see your hands on the keyboard. Let me check your hand position carefully..." Then add: [STATUS:checking_hand_position]
-- When in doubt, assume hands are NOT properly visible
+**STEP 2 - HAND PRESENCE CHECK (BE HONEST):**
+- CRITICAL: Look at the video frame and describe what you actually see
+- If you see NO hands on the keyboard: Say "I can see the piano keyboard, but I don't see your hands on it yet. Please place both hands on the piano keys." Then add: [STATUS:checking_hands]
+- If you see only part of an arm or hands not touching the keys: Say "I can see some of your arm, but I need to see your hands actually placed on the piano keys." Then add: [STATUS:checking_hands]
+- If you see hands but they're not clearly on the keyboard: Say "I can see your hands, but they need to be placed on the piano keys. Please rest your hands on the keyboard." Then add: [STATUS:checking_hands]
+- ONLY if you clearly see hands (with visible fingers) actually touching the piano keyboard: Say "Good! I can see your hands on the keyboard. Let me check your hand position carefully..." Then add: [STATUS:checking_hand_position]
+- ALWAYS describe what you actually see, not what you expect to see
 
-**STEP 3 - HAND POSITION VERIFICATION (BE EXTREMELY STRICT):**
-- CRITICAL: Count each finger individually. You need to see EXACTLY 10 fingers total.
-- Check LEFT HAND: Count 1, 2, 3, 4, 5 fingers each on a separate key
-- Check RIGHT HAND: Count 1, 2, 3, 4, 5 fingers each on a separate key
-- Each finger must be on its own key, not overlapping
-- If you count fewer than 5 fingers on either hand: Say exactly how many you see, e.g., "I can only see 3 fingers on your left hand and 4 on your right. Please spread all 5 fingers on each hand, each on a separate key." Then add: [STATUS:checking_hand_position]
-- If fingers are touching/overlapping or in a fist: Say "Your fingers need to be spread out with each finger on its own key. Please separate your fingers." Then add: [STATUS:checking_hand_position]
-- ONLY if you count exactly 5 fingers on left hand AND 5 fingers on right hand, each on separate keys: Say "Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed on the keys. What song would you like to learn? Use the buttons below or speak the song name!" Then add: [STATUS:waiting_song]
-- When in doubt, describe EXACTLY what you see and ask for adjustment
+**STEP 3 - HAND POSITION VERIFICATION (BE HONEST):**
+- CRITICAL: Look at the video frame and count what you actually see
+- Count LEFT HAND fingers: How many can you clearly see? (1, 2, 3, 4, 5?)
+- Count RIGHT HAND fingers: How many can you clearly see? (1, 2, 3, 4, 5?)
+- If you can't see fingers clearly: Say "I can't see your fingers clearly. Please spread your hands so I can see each finger on its own key." Then add: [STATUS:checking_hand_position]
+- If you see fewer than 5 fingers on either hand: Say exactly what you see, e.g., "I can see 3 fingers on your left hand and 4 on your right. Please spread all 5 fingers on each hand, each on a separate key." Then add: [STATUS:checking_hand_position]
+- If fingers are touching or overlapping: Say "Your fingers need to be spread out with each finger on its own key. Please separate your fingers." Then add: [STATUS:checking_hand_position]
+- ONLY if you can clearly count exactly 5 fingers on left hand AND 5 fingers on right hand, each on separate keys: Say "Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed on the keys. What song would you like to learn? Use the buttons below or speak the song name!" Then add: [STATUS:waiting_song]
+- ALWAYS count what you actually see, not what you expect to see
 
 **STEP 4 - SONG TEACHING:**
 - Once student selects a song, begin teaching
@@ -237,12 +239,13 @@ Available steps:
 - Watch video and provide specific feedback
 - Be encouraging and celebrate progress
 
-**CONTINUOUS MONITORING (BE STRICT):**
+**CONTINUOUS MONITORING (BE HONEST):**
 During teaching, you'll be asked to check visibility every few seconds:
-- CRITICAL: Be honest. If the view is unclear, blurry, or you cannot distinctly see the keyboard or hands, speak up immediately
+- CRITICAL: Be completely honest about what you see. If the view is unclear, blurry, or you cannot distinctly see the keyboard or hands, speak up immediately
 - If you CAN clearly see keyboard (with visible black and white keys) AND hands (with visible fingers): Continue teaching and add: [STATUS:teaching]
 - If you CANNOT clearly see keyboard OR hands OR the image is blurry/unclear: Say "Hold on! I can't see [keyboard/hands/the image is blurry]. Please adjust your camera so I have a clear view." Then add: [STATUS:adjusting_position]
 - When position is fixed after adjustment: ONLY if you can now clearly see everything, say "Good! I can see everything clearly now. Let's continue..." Then add: [STATUS:teaching]
+- ALWAYS describe what you actually see, not what you expect to see
 
 **CRITICAL RULES FOR HONESTY:**
 - NEVER claim to see something you don't clearly see
@@ -470,6 +473,7 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
     return btoa(binary);
   };
 
+
   const generateTTS = (text: string) => {
     console.log('🎵 TTS called with text:', text);
     
@@ -591,6 +595,7 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
           setIsListening(false);
         }
 
+
         const pcmData = floatTo16BitPCM(inputData);
         const base64Audio = int16ToBase64(pcmData);
 
@@ -609,7 +614,7 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
       audioSource.connect(processor);
       processor.connect(audioContextRef.current.destination);
 
-      console.log('🎤 Audio capture started - listening for voice input');
+      console.log('🎤 Audio capture started - listening for voice input and notes');
     } catch (error) {
       console.error('❌ Failed to start audio capture:', error);
     }
@@ -679,13 +684,13 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
 
     switch(step) {
       case 'checking_keyboard':
-        promptText = 'I just sent you video frames. First, confirm you are receiving video input from me. Then, describe in detail what you see in the most recent video frame. What objects, colors, or shapes do you see? Is there a piano keyboard with black and white keys? If you see a piano keyboard clearly, say "I can see a piano keyboard with black and white keys" and respond with [STATUS:checking_hands]. If you see something else or cannot see a piano, describe what you actually see and respond with [STATUS:checking_keyboard].';
+        promptText = 'Look at the most recent video frame I sent you. Describe EXACTLY what you see in the image. What objects, colors, or shapes are visible? Be completely honest - if you see a person\'s face, say so. If you see a desk or table, say so. If you see a piano keyboard with black and white keys, say so. Don\'t pretend to see things that aren\'t there. Based on what you actually see, respond with [STATUS:checking_hands] only if you can clearly see piano keys, otherwise respond with [STATUS:checking_keyboard].';
         break;
       case 'checking_hands':
-        promptText = 'Look at the most recent video frame I sent. Describe what you see. Are there human hands visible in the frame? Are they touching the piano keyboard? If you see hands clearly on the keyboard, respond with [STATUS:checking_hand_position]. If not, describe what you see and respond with [STATUS:checking_hands].';
+        promptText = 'Look at the most recent video frame I sent. Describe EXACTLY what you see. Are there human hands visible in the frame? Are they actually touching the piano keyboard? Be honest - if you don\'t see hands, say so. If you see hands but they\'re not on the keyboard, say so. Only if you clearly see hands actually placed on the piano keyboard, respond with [STATUS:checking_hand_position]. Otherwise, describe what you actually see and respond with [STATUS:checking_hands].';
         break;
       case 'checking_hand_position':
-        promptText = 'Examine the current video frame carefully. I need you to count fingers. Left hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Right hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Tell me the exact number for each hand. If you see 5 fingers on left and 5 on right, each on separate keys, respond with [STATUS:waiting_song]. Otherwise, tell me the exact count you see and respond with [STATUS:checking_hand_position].';
+        promptText = 'Look at the current video frame carefully. I need you to count what you actually see. Left hand - how many fingers can you clearly see? (count: 1, 2, 3, 4, 5?). Right hand - how many fingers can you clearly see? (count: 1, 2, 3, 4, 5?). Tell me the exact number for each hand based on what you actually see. If you can clearly see 5 fingers on left and 5 on right, each on separate keys, respond with [STATUS:waiting_song]. Otherwise, tell me the exact count you see and respond with [STATUS:checking_hand_position].';
         break;
       case 'waiting_song':
         console.log('⏸️ Check-in skipped - waiting for song selection');
@@ -1176,6 +1181,7 @@ Please provide a 2-3 paragraph summary that includes:
           )}
         </div>
 
+
         {!isStreaming && isConnected && (
           <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-xl p-6 mb-6">
             <h3 className="text-yellow-200 font-semibold text-lg mb-3">🎹 Setup Your Camera:</h3>
@@ -1467,7 +1473,7 @@ Please provide a 2-3 paragraph summary that includes:
               </ul>
             </div>
             <div className="bg-cyan-500/20 p-4 rounded-lg">
-              <p className="font-medium text-cyan-300 mb-2">🎤 Voice Input:</p>
+              <p className="font-medium text-cyan-300 mb-2">🎤 Voice & Audio:</p>
               <ul className="space-y-1 text-xs">
                 <li>• Activates during song selection</li>
                 <li>• Speak the song name you want</li>

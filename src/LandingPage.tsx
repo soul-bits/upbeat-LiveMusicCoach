@@ -24,10 +24,12 @@ const DEMO_LINK = "https://www.youtube.com/watch?v=fJy26OKglcA";
 
 interface LandingPageProps {
   onStartPlaying: () => void;
+  onNoteTest?: () => void;
 }
 
 export function LandingPage({
   onStartPlaying,
+  onNoteTest,
 }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 relative overflow-hidden">
@@ -376,6 +378,18 @@ export function LandingPage({
                   Start Learning Now
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
+                
+                {onNoteTest && (
+                  <Button
+                    onClick={onNoteTest}
+                    size="lg"
+                    variant="outline"
+                    className="border-2 border-purple-500 text-purple-300 hover:bg-purple-500 hover:text-white font-semibold px-8 py-4 text-lg shadow-xl hover:shadow-2xl transition-all duration-300"
+                  >
+                    <Music className="w-5 h-5 mr-2" />
+                    Test Note Detection
+                  </Button>
+                )}
                 
                 <div className="flex items-center gap-2 text-slate-400">
                   <Users className="w-5 h-5" />
