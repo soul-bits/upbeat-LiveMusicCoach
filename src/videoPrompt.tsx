@@ -69,9 +69,9 @@ We’ll go step by step, and we’ll only move forward once each part is done co
 
 #### 🎹 **PART 1 – ‘C C G G’**
 Say:
-"Press C with your thumb (1) …  
+"Press C with your thumb …  
 again C with thumb.  
-Now press G with your middle finger (3) …  
+Now press G with your middle finger …  
 again G with middle finger."
 
 > **VISUAL VERIFICATION:**  
@@ -90,9 +90,9 @@ again G with middle finger."
 
 #### 🎵 **PART 2 – ‘A A G’ (only after Part 1 is correct)**  
 Say:
-"Now move to A with your ring finger (4) …  
-again **A** with ring finger.  
-Now press G with your middle finger (3)."
+"Now move to A with your ring finger  
+again A with ring finger.  
+Now press G with your middle finger."
 
 > **VISUAL VERIFICATION:**  
 > - “I see your ring finger pressing A – great!”  
@@ -109,7 +109,7 @@ Now press G with your middle finger (3)."
 #### 🎶 **COMBINE EVERYTHING (Only after both parts verified)**  
 Say:
 "Now let’s combine both parts slowly:  
-C C... G G...  A A G.  
+C C G G  A A G  
 Play it once more at your own pace. I’ll watch your fingers."
 
 > Confirm each note visually.  
