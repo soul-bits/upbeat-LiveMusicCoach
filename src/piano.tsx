@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Video, Square, Mic, Send, Loader2, Music } from 'lucide-react';
+import { Video, Square, Mic, Send, Loader2, Music, SwitchCamera } from 'lucide-react';
 import VectaraLogger from './vectaraLogger';
 import { useAvatar } from './AvatarContext';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -40,7 +40,9 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [lessonStep, setLessonStep] = useState<'idle' | 'checking_keyboard' | 'checking_hands' | 'checking_hand_position' | 'waiting_song' | 'teaching' | 'adjusting_position'>('idle');
-  
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment'); // Default to back camera for piano
+  const [isPreviewOnly, setIsPreviewOnly] = useState(false); // Preview mode without API
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -618,16 +620,22 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     }
   };
 
-  const startStreaming = async () => {
-    if (!isConnected) {
+  const startStreaming = async (previewOnly: boolean = false) => {
+    // Allow preview mode without API connection
+    if (!previewOnly && !isConnected) {
       setStatusMessage('Please connect to API first');
       return;
     }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, frameRate: 30 },
-        audio: {
+        video: {
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+          facingMode: facingMode
+        },
+        audio: previewOnly ? false : {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
@@ -642,7 +650,14 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
       }
 
       setIsStreaming(true);
+      setIsPreviewOnly(previewOnly);
       setFramesSent(0);
+
+      if (previewOnly) {
+        setStatusMessage('📹 Camera preview - Connect to API to start lesson');
+        return; // Exit early for preview mode
+      }
+
       setLessonStep('checking_keyboard');
 
       const now = new Date();
@@ -739,6 +754,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     }
 
     setIsStreaming(false);
+    setIsPreviewOnly(false);
     setLastFrameTime('');
     setFramesSent(0);
     setLessonStep('idle');
@@ -751,6 +767,82 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
         notesPlayed: 0,
         mistakes: []
       });
+    }
+  };
+
+  const switchCamera = async () => {
+    if (!isStreaming) return;
+
+    const wasPreviewOnly = isPreviewOnly;
+
+    // Stop current stream
+    if (frameIntervalRef.current) {
+      clearInterval(frameIntervalRef.current);
+      frameIntervalRef.current = null;
+    }
+
+    if (checkInIntervalRef.current) {
+      clearInterval(checkInIntervalRef.current);
+      checkInIntervalRef.current = null;
+    }
+
+    stopAudioCapture();
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    // Toggle facing mode
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+
+    // Restart stream with new facing mode
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+          facingMode: newFacingMode
+        },
+        audio: wasPreviewOnly ? false : {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 16000
+        }
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // If not in preview mode, restart the lesson intervals
+      if (!wasPreviewOnly) {
+        // Restart audio if in teaching stages
+        if (lessonStep === 'waiting_song' || lessonStep === 'teaching') {
+          setTimeout(() => startAudioCapture(), 500);
+        }
+
+        // Restart frame streaming
+        frameIntervalRef.current = setInterval(() => {
+          sendRealtimeFrame();
+        }, streamInterval);
+
+        // Restart check-ins
+        checkInIntervalRef.current = setInterval(() => {
+          const currentStep = lessonStepRef.current;
+          console.log('⏰ Check-in triggered - step:', currentStep);
+          sendCheckInMessage(currentStep);
+        }, 10000);
+      }
+
+    } catch (error) {
+      console.error('❌ Error switching camera:', error);
+      setStatusMessage('Failed to switch camera');
     }
   };
 
@@ -840,18 +932,32 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
           </div>
           {isStreaming && (
             <div className="mt-3 pt-3 border-t border-white/10">
-              <p className="text-sm text-slate-300">
-                👀 Watching: {framesSent} frames | Step: {
-                  lessonStep === 'checking_keyboard' ? '🎹 Keyboard Check' : 
-                  lessonStep === 'checking_hands' ? '👐 Hand Check' : 
-                  lessonStep === 'checking_hand_position' ? '✋ Position Check' :
-                  lessonStep === 'waiting_song' ? '🎵 Song Select' : 
-                  lessonStep === 'teaching' ? '📚 Teaching' : 
-                  lessonStep === 'adjusting_position' ? '⚠️ Adjusting' :
-                  'Idle'
-                }
-                {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && ' | 🎤 Audio Active'}
-              </p>
+              {isPreviewOnly ? (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-purple-300">
+                    📹 Preview Mode - Connect to API to start teaching
+                  </p>
+                  <button
+                    onClick={connectToGemini}
+                    className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white text-sm rounded-lg font-medium"
+                  >
+                    Connect Now
+                  </button>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-300">
+                  👀 Watching: {framesSent} frames | Step: {
+                    lessonStep === 'checking_keyboard' ? '🎹 Keyboard Check' :
+                    lessonStep === 'checking_hands' ? '👐 Hand Check' :
+                    lessonStep === 'checking_hand_position' ? '✋ Position Check' :
+                    lessonStep === 'waiting_song' ? '🎵 Song Select' :
+                    lessonStep === 'teaching' ? '📚 Teaching' :
+                    lessonStep === 'adjusting_position' ? '⚠️ Adjusting' :
+                    'Idle'
+                  }
+                  {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && ' | 🎤 Audio Active'}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -933,15 +1039,17 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                 <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
                   <div className="flex flex-col gap-2">
                     <div className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg ${
+                      isPreviewOnly ? 'bg-purple-600' :
                       lessonStep === 'adjusting_position' ? 'bg-orange-600 animate-pulse' : 'bg-blue-600'
                     }`}>
                       <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
                       <span className="text-white text-sm font-bold">
-                        {lessonStep === 'adjusting_position' ? '⚠️ ADJUST' : 'TEACHING'}
+                        {isPreviewOnly ? '📹 PREVIEW' :
+                         lessonStep === 'adjusting_position' ? '⚠️ ADJUST' : 'TEACHING'}
                       </span>
                     </div>
-                    
-                    {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && (
+
+                    {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && !isPreviewOnly && (
                       <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
                         isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
                       }`}>
@@ -952,43 +1060,60 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                       </div>
                     )}
                   </div>
-                  
-                  {lastFrameTime && (
-                    <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
-                      <span className="text-white text-xs">Last: {lastFrameTime}</span>
-                    </div>
-                  )}
-                  
-                  {sessionDuration > 0 && (
-                    <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
-                      <span className="text-white text-xs">
-                        Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
-                      </span>
-                    </div>
-                  )}
+
+                  <div className="flex flex-col items-end gap-2">
+                    {lastFrameTime && !isPreviewOnly && (
+                      <div className="bg-cyan-600 px-3 py-1 rounded-full shadow-lg">
+                        <span className="text-white text-xs">Last: {lastFrameTime}</span>
+                      </div>
+                    )}
+
+                    {sessionDuration > 0 && !isPreviewOnly && (
+                      <div className="bg-green-600 px-3 py-1 rounded-full shadow-lg">
+                        <span className="text-white text-xs">
+                          Session: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}
+                        </span>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={switchCamera}
+                      className="bg-white/20 hover:bg-white/30 backdrop-blur px-3 py-2 rounded-full shadow-lg transition-all"
+                      title="Switch Camera"
+                    >
+                      <SwitchCamera className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
 
             <div className="space-y-3">
               <button
-                onClick={isStreaming ? stopStreaming : startStreaming}
-                disabled={!isConnected}
+                onClick={() => {
+                  if (isStreaming) {
+                    stopStreaming();
+                  } else if (isConnected) {
+                    startStreaming(false); // Full lesson mode
+                  } else {
+                    startStreaming(true); // Preview mode only
+                  }
+                }}
                 className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-medium transition-all text-lg ${
                   isStreaming
                     ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white disabled:from-gray-700 disabled:to-gray-700 disabled:cursor-not-allowed'
+                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white'
                 }`}
               >
                 {isStreaming ? (
                   <>
                     <Square className="w-6 h-6" />
-                    End Session
+                    {isPreviewOnly ? 'Stop Preview' : 'End Session'}
                   </>
                 ) : (
                   <>
                     <Music className="w-6 h-6" />
-                    Start Piano Lesson
+                    {isConnected ? 'Start Piano Lesson' : 'Preview Camera'}
                   </>
                 )}
               </button>
