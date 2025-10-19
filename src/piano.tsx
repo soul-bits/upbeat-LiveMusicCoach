@@ -26,6 +26,7 @@ interface MusicInstructorProps {
       name: string;
       avatar_url: string;
       video_url: string;
+      voice_id: string;
       personality: string;
       quote: string;
     };

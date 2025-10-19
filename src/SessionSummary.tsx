@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from "./ui/button";
 import { 
   TrendingUp, 
   Clock, 
   Home,
-  Music
+  Music,
+  Play,
+  Pause,
+  Volume2
 } from "lucide-react";
 import { motion } from "motion/react";
 import { AIChatBubble } from "./AIChatBubble";
@@ -26,6 +29,7 @@ export interface SessionSummaryType {
     name: string;
     avatar_url: string;
     video_url: string;
+    voice_id: string;
     personality: string;
     quote: string;
   };
@@ -39,11 +43,98 @@ interface SessionSummaryProps {
 
 export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionSummaryProps) {
   const { selectedAvatar } = useAvatar();
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const generateAudio = async (text: string, voiceId: string): Promise<string> => {
+    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+    if (!apiKey) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`ElevenLabs API failed: ${response.status}`);
+    }
+
+    const audioBlob = await response.blob();
+    return URL.createObjectURL(audioBlob);
+  };
+
+  const handlePlayAudio = async () => {
+    if (!summary.conversationSummary || !summary.summaryAvatar?.voice_id) {
+      setAudioError('No summary or voice available');
+      return;
+    }
+
+    if (isPlayingAudio) {
+      // Pause current audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        setIsPlayingAudio(false);
+      }
+      return;
+    }
+
+    try {
+      setIsLoadingAudio(true);
+      setAudioError(null);
+
+      // Stop any existing audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+
+      const audioUrl = await generateAudio(summary.conversationSummary, summary.summaryAvatar.voice_id);
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      audio.onerror = () => {
+        setAudioError('Failed to play audio');
+        setIsPlayingAudio(false);
+        setIsLoadingAudio(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+      setIsPlayingAudio(true);
+      setIsLoadingAudio(false);
+    } catch (error) {
+      console.error('Error generating audio:', error);
+      setAudioError('Failed to generate audio');
+      setIsLoadingAudio(false);
+    }
   };
 
 
@@ -139,7 +230,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                     <span className="text-white font-bold text-lg">📝</span>
                   </div>
                 )}
-                <div>
+                <div className="flex-1">
                   <h2 className="text-xl font-semibold text-white">
                     Session Summary
                     {summary.summaryAvatar && (
@@ -152,6 +243,31 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                     {summary.summaryAvatar ? summary.summaryAvatar.personality : 'AI-generated reflection on your lesson'}
                   </p>
                 </div>
+                {summary.summaryAvatar?.voice_id && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handlePlayAudio}
+                      disabled={isLoadingAudio}
+                      className={`p-2 rounded-full transition-all ${
+                        isPlayingAudio 
+                          ? 'bg-red-600 hover:bg-red-700 text-white' 
+                          : 'bg-cyan-600 hover:bg-cyan-700 text-white'
+                      } disabled:bg-gray-600 disabled:cursor-not-allowed`}
+                      title={isPlayingAudio ? 'Pause audio' : 'Play audio summary'}
+                    >
+                      {isLoadingAudio ? (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : isPlayingAudio ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                    </button>
+                    {audioError && (
+                      <span className="text-xs text-red-400">{audioError}</span>
+                    )}
+                  </div>
+                )}
               </div>
               {summary.summaryAvatar?.video_url && (
                 <motion.div 

@@ -23,6 +23,7 @@ const AppContent: React.FC = () => {
         name: 'Mock Instructor',
         avatar_url: '',
         video_url: '',
+        voice_id: '',
         personality: 'Helpful and encouraging.',
         quote: 'Great work on your lesson!'
       }
