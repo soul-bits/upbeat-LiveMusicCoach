@@ -296,7 +296,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
             <TrendingUp className="w-12 h-12 text-blue-400 mx-auto mb-4" />
             <h2 className="mb-3 text-white text-2xl font-semibold">Keep the Momentum Going!</h2>
             <p className="text-slate-300 mb-6 max-w-2xl mx-auto">
-              Your AI tutor will remind you tomorrow if you skip practice. Consistency is key to mastering the piano!
+              Your AI instructor will remind you tomorrow if you skip practice. Consistency is key to mastering your musical skills!
             </p>
             <div className="flex flex-wrap gap-3 justify-center">
               <button 

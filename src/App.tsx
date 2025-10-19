@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import PianoTutor from './piano';
+import MusicInstructor from './piano';
 import { SessionSummary, SessionSummaryType } from './SessionSummary';
 import { LandingPage } from './LandingPage';
 import { SetupPage, SetupConfig } from './SetupPage';
@@ -85,7 +85,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <PianoTutor onEndSession={handleEndSession} />
+    <MusicInstructor onEndSession={handleEndSession} />
   );
 };
 

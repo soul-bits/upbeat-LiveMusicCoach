@@ -56,7 +56,7 @@ export function LandingPage({
               />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Upbeat</h1>
+              <h1 className="text-2xl font-bold text-white">Music For All</h1>
               <p className="text-sm text-slate-300">
                 by <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>#</span>
                 <span className="text-slate-400 font-semibold" style={{ fontFamily: 'Brush Script MT, cursive' }}>Soul</span>
@@ -100,31 +100,31 @@ export function LandingPage({
             >
               <Badge className="mb-6 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border-cyan-500/30 px-4 py-2 text-sm font-medium">
                 <Sparkles className="w-4 h-4 mr-2" />
-                AI-Powered Piano Learning
+                AI-Powered Music Learning for Everyone
               </Badge>
             </motion.div>
             
-            <motion.h1 
+            <motion.h1
               className="text-5xl md:text-7xl font-bold mb-6 text-white leading-tight"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
             >
-              Your Personal{" "}
+              Learn Music{" "}
               <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                Piano Coach
+                Anywhere, Anytime
               </span>{" "}
-              in Real-Time
+              With AI
             </motion.h1>
             
-            <motion.p 
+            <motion.p
               className="text-xl text-slate-300 mb-8 leading-relaxed max-w-lg mx-auto lg:mx-0"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
             >
-              Master the piano with instant feedback from your AI tutor. 
-              No more guessing—just play, learn, and improve with personalized guidance.
+              Access world-class music education from anywhere with your personal AI instructor.
+              Real-time feedback, adaptive learning, and personalized guidance—music made accessible for everyone.
             </motion.p>
 
             <motion.div 
@@ -217,11 +217,11 @@ export function LandingPage({
             >
               <Music className="w-16 h-16 text-cyan-400 mx-auto mb-6" />
               <p className="text-2xl text-white leading-relaxed font-light">
-                "Learning piano is magical but tricky.{" "}
+                "Music education should be accessible to everyone, everywhere.{" "}
                 <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent font-semibold">
-                  Upbeat
+                  Music For All
                 </span>{" "}
-                guides you in real-time, so mistakes are corrected instantly."
+                brings AI-powered instruction to you—real-time feedback, anytime you need it."
               </p>
               <div className="mt-8 flex justify-center items-center gap-4">
                 <div className="w-12 h-0.5 bg-gradient-to-r from-transparent to-cyan-400"></div>
@@ -247,7 +247,7 @@ export function LandingPage({
         >
           <Badge className="mb-6 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border-cyan-500/30 px-4 py-2 text-sm font-medium">
             <Star className="w-4 h-4 mr-2" />
-            Why Choose Upbeat?
+            Why Music For All?
           </Badge>
           <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
             Advanced AI Technology Meets{" "}
@@ -256,7 +256,7 @@ export function LandingPage({
             </span>
           </h2>
           <p className="text-xl text-slate-300 max-w-3xl mx-auto">
-            Experience the future of piano education with cutting-edge AI that adapts to your unique learning style
+            Experience the future of music education with cutting-edge AI that adapts to your unique learning style—accessible to everyone, anywhere
           </p>
         </motion.div>
 
@@ -278,15 +278,15 @@ export function LandingPage({
             },
             {
               icon: Brain,
-              title: "Personalized AI Tutors",
-              description: "Choose from unique tutors with distinct personalities—Snape, Sheldon, or Phoebe.",
+              title: "Personalized AI Instructors",
+              description: "Choose from unique instructors with distinct teaching personalities that adapt to your learning style.",
               gradient: "from-yellow-500 to-orange-600",
               bgGradient: "from-yellow-500/10 to-orange-600/10",
             },
             {
               icon: Clock,
-              title: "Practice Reminders",
-              description: "Your tutor reminds you to practice, keeping you motivated and on track.",
+              title: "Learn On Your Schedule",
+              description: "Practice anytime, anywhere with your AI instructor always available when you are.",
               gradient: "from-emerald-500 to-teal-600",
               bgGradient: "from-emerald-500/10 to-teal-600/10",
             },
@@ -356,14 +356,14 @@ export function LandingPage({
               </Badge>
               
               <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
-                Transform Your Piano Journey{" "}
+                Start Your Music Journey{" "}
                 <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
                   Today
                 </span>
               </h2>
-              
+
               <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-                Join thousands of students who are already mastering the piano with their personal AI coach
+                Join thousands learning music with personalized AI instruction—accessible to everyone, anywhere, anytime
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
@@ -411,12 +411,12 @@ export function LandingPage({
               <div className="flex items-center gap-3 mb-4">
                 <Music className="w-8 h-8 text-cyan-400" />
                 <div>
-                  <h3 className="text-xl font-bold text-white">Upbeat</h3>
-                  <p className="text-sm text-slate-400">AI Piano Learning</p>
+                  <h3 className="text-xl font-bold text-white">Music For All</h3>
+                  <p className="text-sm text-slate-400">AI Music Learning</p>
                 </div>
               </div>
               <p className="text-slate-400 text-sm">
-                Master the piano with personalized AI guidance and real-time feedback.
+                Music education accessible to everyone, anywhere, anytime with AI-powered instruction.
               </p>
             </div>
             
@@ -453,11 +453,11 @@ export function LandingPage({
           
           <div className="border-t border-white/10 pt-8 text-center">
             <p className="text-slate-400 text-sm">
-              &copy; 2025 Upbeat by{" "}
+              &copy; 2025 Music For All by{" "}
               <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>#</span>
               <span className="text-slate-400 font-semibold" style={{ fontFamily: 'Brush Script MT, cursive' }}>Soul</span>
-              <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>Bits</span>. 
-              Built with ❤️ for the future of music education.
+              <span className="text-cyan-400 font-semibold" style={{ fontFamily: 'Courier New, monospace' }}>Bits</span>.
+              Making music accessible for everyone, everywhere.
             </p>
           </div>
         </div>

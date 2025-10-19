@@ -10,7 +10,7 @@ interface Message {
   timestamp: Date;
 }
 
-interface PianoTutorProps {
+interface MusicInstructorProps {
   onEndSession?: (sessionData: {
     duration: number;
     accuracy: number;
@@ -23,7 +23,7 @@ interface PianoTutorProps {
   }) => void;
 }
 
-const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
+const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession }) => {
   const { selectedAvatar } = useAvatar();
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -52,7 +52,7 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Piano Tutor'));
+  const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Music Instructor'));
   const chatContainerRef = useRef<HTMLDivElement>(null);
   
   const lastDisplayedHashRef = useRef<string>('');
@@ -171,7 +171,7 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
             },
             systemInstruction: {
               parts: [{
-                text: `You are ${selectedAvatar?.name || 'an AI piano instructor'}, ${selectedAvatar?.personality || 'a patient and encouraging teacher'}. You can see the piano keyboard and the student's hands in real-time through video, and you can hear what they play through audio.
+                text: `You are ${selectedAvatar?.name || 'an AI music instructor'}, ${selectedAvatar?.personality || 'a patient and encouraging teacher'}. You can see the piano keyboard and the student's hands in real-time through video, and you can hear what they play through audio.
 
 ${selectedAvatar?.system_prompt ? `PERSONALITY: ${selectedAvatar.system_prompt}` : ''}
 
@@ -275,9 +275,9 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
           }
 
           if (response.setupComplete) {
-            console.log('✅ Setup complete - Piano tutor ready!');
+            console.log('✅ Setup complete - Music instructor ready!');
             setIsConnected(true);
-            setStatusMessage('Connected - Your AI Piano Tutor is ready!');
+            setStatusMessage('Connected - Your AI Music Instructor is ready!');
             return;
           }
 
@@ -910,7 +910,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
             )}
             <h1 className="text-6xl font-bold text-white mb-2 flex items-center justify-center gap-3">
               <Music className="w-12 h-12" />
-              {selectedAvatar ? `Hello, I am ${selectedAvatar.name}` : 'AI Piano Tutor'}
+              {selectedAvatar ? `Hello, I am ${selectedAvatar.name}` : 'AI Music Instructor'}
             </h1>
           </div>
           <p className="text-slate-300 text-lg">
@@ -1245,7 +1245,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
         )}
 
         <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
-          <h3 className="text-xl font-semibold text-white mb-3">🎹 How Your AI Piano Tutor Works:</h3>
+          <h3 className="text-xl font-semibold text-white mb-3">🎹 How Your AI Music Instructor Works:</h3>
           <div className="grid md:grid-cols-3 gap-4 text-white/80 text-sm mb-4">
             <div className="bg-blue-500/20 p-4 rounded-lg">
               <p className="font-medium text-blue-300 mb-2">👁️ Visual Teaching:</p>
@@ -1315,4 +1315,4 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
   );
 };
 
-export default PianoTutor;
+export default MusicInstructor;

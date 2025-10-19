@@ -49,7 +49,7 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
     {
       id: '1',
       role: 'assistant',
-      content: `Hi! I'm Melody, your AI piano coach assistant. I've analyzed your ${formatDuration(summary.duration)} practice session and I'm here to help you understand your performance and answer any questions you might have! 🎹`,
+      content: `Hi! I'm Melody, your AI music coach assistant. I've analyzed your ${formatDuration(summary.duration)} practice session and I'm here to help you understand your performance and answer any questions you might have! 🎹`,
       timestamp: new Date()
     }
   ]);
@@ -123,7 +123,7 @@ export function AIChatBubble({ summary }: AIChatBubbleProps) {
                 </div>
                 <div>
                   <h3 className="text-white text-sm font-semibold">Melody</h3>
-                  <p className="text-slate-300 text-xs">AI Piano Coach</p>
+                  <p className="text-slate-300 text-xs">AI Music Coach</p>
                 </div>
               </div>
               <button

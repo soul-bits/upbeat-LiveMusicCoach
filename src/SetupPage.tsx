@@ -75,20 +75,20 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
             <div className="flex items-center justify-center mb-6">
               <Music className="w-8 h-8 text-yellow-400 mr-3" />
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white">
-                Choose Your AI Tutor
+                Choose Your AI Instructor
               </h1>
               <Sparkles className="w-8 h-8 text-yellow-400 ml-3" />
             </div>
-            
+
             <p className="text-slate-300 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed">
-              Each tutor has a unique personality and teaching style. Pick the one that motivates you to learn!
+              Each instructor has a unique personality and teaching style. Pick the one that resonates with your learning journey!
             </p>
 
             {/* Setup Status */}
             <div className="mt-8 flex items-center justify-center">
               <div className="flex items-center space-x-3 bg-white/10 backdrop-blur-sm rounded-full px-6 py-3 border border-white/20">
                 <Music className="w-5 h-5 text-yellow-400" />
-                <span className="text-slate-300 font-medium">Choose your tutor to get started</span>
+                <span className="text-slate-300 font-medium">Choose your instructor to get started</span>
                 <Sparkles className="w-5 h-5 text-yellow-400" />
               </div>
             </div>
@@ -101,9 +101,9 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-center mb-8"
           >
-            <h2 className="text-4xl font-bold text-white mb-4">Meet Your AI Tutors</h2>
+            <h2 className="text-4xl font-bold text-white mb-4">Meet Your AI Instructors</h2>
             <p className="text-slate-300 text-lg">
-              Swipe through to explore each tutor's unique teaching style
+              Swipe through to explore each instructor's unique teaching style
             </p>
           </motion.div>
 
@@ -206,7 +206,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                           ) : (
                             <>
                               <Star className="w-5 h-5 mr-2" />
-                              Choose This Tutor
+                              Choose This Instructor
                             </>
                           )}
                         </Button>
@@ -304,7 +304,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
                 </>
               ) : (
                 <>
-                  Select a Tutor First
+                  Select an Instructor First
                   <Music className="w-4 h-4 ml-2" />
                 </>
               )}

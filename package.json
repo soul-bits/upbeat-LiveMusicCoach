@@ -1,7 +1,7 @@
 {
   "name": "upbeat-livemusiccoach",
   "version": "1.0.0",
-  "description": "Upbeat is a real-time, AI-powered piano tutor built on Gemini offering a proactive, real-time learning experience, bridging the gap between a private tutor and digital learning tools.",
+  "description": "AI-powered music learning platform making music education accessible to everyone, anywhere, anytime. Real-time personalized instruction for all skill levels.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
