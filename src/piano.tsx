@@ -330,6 +330,10 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
                       timestamp: new Date()
                     }]);
                     vectaraLoggerRef.current.logAIResponse(displayText);
+                    
+                    // Generate TTS for new response
+                    generateTTS(displayText);
+                    
                     lastDisplayedHashRef.current = hash;
                   }
                 } else {
@@ -339,6 +343,9 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
                     timestamp: new Date()
                   }]);
                   vectaraLoggerRef.current.logAIResponse(finalText);
+                  
+                  // Generate TTS for new response
+                  generateTTS(finalText);
                 }
               }
               
@@ -445,6 +452,84 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
       binary += String.fromCharCode(uint8Array[i]);
     }
     return btoa(binary);
+  };
+
+  // Reference to current playing audio to prevent overlap
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const generateTTS = async (text: string) => {
+    const openaiApiKey = (import.meta as any).env?.VITE_OPENAI_API_KEY || '';
+    
+    if (!openaiApiKey) {
+      console.warn('⚠️ No OpenAI API key for TTS');
+      return;
+    }
+
+    try {
+      // Stop any currently playing audio to prevent overlap
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        console.log('🔇 Stopped previous TTS to prevent overlap');
+      }
+
+      // Process text to handle musical notes with special pronunciation
+      const processedText = text
+        .replace(/\b([CDEFGAB])\b/g, '$1~') // Add ~ to musical notes for emphasis
+        .replace(/\b([CDEFGAB])~/g, '$1~') // Ensure notes have the ~ symbol
+        .replace(/Middle C/gi, 'Middle C~') // Special case for "Middle C"
+        .replace(/key ([CDEFGAB])/gi, 'key $1~'); // Notes after "key"
+
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: processedText,
+          voice: 'nova', // Warm, friendly voice good for teaching
+          response_format: 'mp3',
+          speed: 0.9 // Slightly slower for teaching
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ OpenAI TTS API error:', response.status, errorText);
+        return;
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      // Store reference to current audio
+      currentAudioRef.current = audio;
+      
+      audio.play().catch(error => {
+        console.error('❌ Error playing TTS audio:', error);
+      });
+      
+      // Clean up the URL after playing and clear reference
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+        console.log('🔊 TTS finished playing');
+      };
+
+      // Handle audio errors and clear reference
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        currentAudioRef.current = null;
+        console.error('❌ TTS audio error occurred');
+      };
+      
+      console.log('🔊 TTS audio generated and playing with OpenAI TTS');
+    } catch (error) {
+      console.error('❌ TTS generation failed:', error);
+    }
   };
 
   const startAudioCapture = () => {
