@@ -26,7 +26,8 @@ const AppContent: React.FC = () => {
         voice_id: '',
         personality: 'Helpful and encouraging.',
         quote: 'Great work on your lesson!'
-      }
+      },
+      summaryAudioUrl: undefined
     };
   };
 

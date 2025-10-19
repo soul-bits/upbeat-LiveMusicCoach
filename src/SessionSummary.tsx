@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "./ui/button";
 import { 
   TrendingUp, 
@@ -33,6 +33,7 @@ export interface SessionSummaryType {
     personality: string;
     quote: string;
   };
+  summaryAudioUrl?: string;
 }
 
 interface SessionSummaryProps {
@@ -47,6 +48,44 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
   const [isLoadingAudio, setIsLoadingAudio] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-play audio when component mounts and audio URL is available
+  useEffect(() => {
+    if (summary.summaryAudioUrl && !isPlayingAudio && !isLoadingAudio) {
+      handleAutoPlayAudio();
+    }
+  }, [summary.summaryAudioUrl]);
+
+  const handleAutoPlayAudio = async () => {
+    if (!summary.summaryAudioUrl) return;
+
+    try {
+      setIsLoadingAudio(true);
+      setAudioError(null);
+
+      const audio = new Audio(summary.summaryAudioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setIsPlayingAudio(false);
+      };
+
+      audio.onerror = () => {
+        setAudioError('Failed to play audio');
+        setIsPlayingAudio(false);
+        setIsLoadingAudio(false);
+      };
+
+      await audio.play();
+      setIsPlayingAudio(true);
+      setIsLoadingAudio(false);
+      console.log('🎵 Auto-playing summary audio');
+    } catch (error) {
+      console.error('Error auto-playing audio:', error);
+      setAudioError('Failed to play audio');
+      setIsLoadingAudio(false);
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -86,8 +125,8 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
   };
 
   const handlePlayAudio = async () => {
-    if (!summary.conversationSummary || !summary.summaryAvatar?.voice_id) {
-      setAudioError('No summary or voice available');
+    if (!summary.summaryAudioUrl) {
+      setAudioError('No audio available');
       return;
     }
 
@@ -107,32 +146,27 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
       // Stop any existing audio
       if (audioRef.current) {
         audioRef.current.pause();
-        URL.revokeObjectURL(audioRef.current.src);
       }
 
-      const audioUrl = await generateAudio(summary.conversationSummary, summary.summaryAvatar.voice_id);
-      
-      const audio = new Audio(audioUrl);
+      const audio = new Audio(summary.summaryAudioUrl);
       audioRef.current = audio;
 
       audio.onended = () => {
         setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
       };
 
       audio.onerror = () => {
         setAudioError('Failed to play audio');
         setIsPlayingAudio(false);
         setIsLoadingAudio(false);
-        URL.revokeObjectURL(audioUrl);
       };
 
       await audio.play();
       setIsPlayingAudio(true);
       setIsLoadingAudio(false);
     } catch (error) {
-      console.error('Error generating audio:', error);
-      setAudioError('Failed to generate audio');
+      console.error('Error playing audio:', error);
+      setAudioError('Failed to play audio');
       setIsLoadingAudio(false);
     }
   };
@@ -243,7 +277,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                     {summary.summaryAvatar ? summary.summaryAvatar.personality : 'AI-generated reflection on your lesson'}
                   </p>
                 </div>
-                {summary.summaryAvatar?.voice_id && (
+                {summary.summaryAudioUrl && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handlePlayAudio}
@@ -282,7 +316,7 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
                     loop
                     muted
                     playsInline
-                    className="w-full h-100 object-contain transition-transform duration-300 hover:scale-105"
+                    className="w-full h-70 object-contain transition-transform duration-300 hover:scale-105"
                     onError={(e) => {
                       // Fallback to image if video fails to load
                       const video = e.target as HTMLVideoElement;
