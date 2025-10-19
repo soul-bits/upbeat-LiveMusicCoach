@@ -21,10 +21,14 @@ interface PianoTutorProps {
   }) => void;
 }
 
+const USE_ACTIVITY_WINDOWS = true; // ✅ recommended for reliable vision grounding
+
+const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
+
 const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
   const [isConnected, setIsConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Not connected');
   const [currentResponse, setCurrentResponse] = useState('');
@@ -36,13 +40,16 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const [streamInterval, setStreamInterval] = useState(2000);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [sessionDuration, setSessionDuration] = useState(0);
+  const [lessonStep, setLessonStep] = useState<'idle' | 'checking_keyboard' | 'checking_hands' | 'checking_hand_position' | 'waiting_song' | 'teaching' | 'adjusting_position'>('idle');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const frameIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const checkInIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentResponseRef = useRef<string>('');
+  const lessonStepRef = useRef<string>('idle');
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -50,7 +57,28 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
 
   useEffect(() => {
     return () => {
-      stopStreaming();
+      // Clean up resources without triggering session end
+      if (frameIntervalRef.current) {
+        clearInterval(frameIntervalRef.current);
+        frameIntervalRef.current = null;
+      }
+
+      if (checkInIntervalRef.current) {
+        clearInterval(checkInIntervalRef.current);
+        checkInIntervalRef.current = null;
+      }
+
+      stopAudioCapture();
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+
       disconnectWebSocket();
       // Upload final session to Vectara on cleanup
       vectaraLoggerRef.current.uploadFullSession();
@@ -71,6 +99,11 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
       if (interval) clearInterval(interval);
     };
   }, [sessionStartTime, isStreaming]);
+
+  useEffect(() => {
+    lessonStepRef.current = lessonStep;
+    console.log(`📍 Lesson step changed to: ${lessonStep}`);
+  }, [lessonStep]);
 
   const connectToGemini = () => {
     if (!apiKey) {
@@ -108,11 +141,27 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
               responseModalities: ["TEXT"],
               temperature: 0.7
             },
-systemInstruction: {
+            // 🔧 Make grounding predictable: include *all* realtime input in turns
+            realtimeInputConfig: {
+              turnCoverage: "TURN_INCLUDES_ALL_INPUT",
+              ...(USE_ACTIVITY_WINDOWS ? { automaticActivityDetection: { disabled: true } } : {})
+            },
+            systemInstruction: {
               parts: [{
                 text: `You are an expert piano instructor with years of teaching experience. You can see the piano keyboard and the student's hands in real-time through video, and you can hear what they play through audio.
 
-CRITICAL: Follow this EXACT teaching flow for every lesson:
+CRITICAL INSTRUCTION: BE EXTREMELY HONEST about what you see. NEVER claim to see something that is not clearly visible. If you're unsure, say you cannot see it clearly.
+
+You MUST include a status command at the END of EVERY response using this EXACT format:
+[STATUS:step_name]
+
+Available steps:
+- checking_keyboard
+- checking_hands  
+- checking_hand_position
+- waiting_song
+- teaching
+- adjusting_position
 
 **STAGE 1: KEYBOARD VERIFICATION**
 - When the lesson starts, look at the video feed
@@ -170,22 +219,75 @@ When student makes a mistake:
 After student successfully plays the entire song:
 "🎉 Fantastic job! You just played [song name] all the way through! You practiced patiently, corrected your mistakes, and nailed it. I'm so proud of you! Keep practicing and you'll get even better. Great work today! 🎹"
 
-**CRITICAL RULES:**
-1. NEVER give more than 2-4 notes at once
-2. ALWAYS wait for student to play before giving next instruction
-3. ALWAYS correct mistakes specifically before moving on
-4. NEVER skip the keyboard verification stage
-5. NEVER rush - wait for student confirmation at each step
-6. Keep responses SHORT - 2-3 sentences max per instruction
-7. ONE instruction at a time - don't overwhelm
-8. Use actual note names (C, D, E, F, G, A, B) not "the white key"
-9. After initial finger positioning, use note names and directions: "G - that's 5 white keys to the right of Middle C"
+**STEP 1 - KEYBOARD VISIBILITY CHECK (BE STRICT):**
+- CRITICAL: Only proceed if you can CLEARLY see piano keys (black and white keys in a row)
+- Look for: Multiple white keys, black keys between them, arranged horizontally
+- If you see ANYTHING that is NOT clearly identifiable piano keys (like a desk, table, wall, blurry image, hands without keyboard): Say "I cannot see a piano keyboard yet. Please position your camera so I can see the piano keys clearly - I need to see the white and black keys." Then add: [STATUS:checking_keyboard]
+- ONLY if you can CLEARLY and DEFINITIVELY see piano keyboard with visible black and white keys: Say "Perfect! I can see your piano keyboard with the black and white keys. Now please place both hands on the keyboard in playing position." Then add: [STATUS:checking_hands]
+- When in doubt, assume you CANNOT see the keyboard clearly
 
-You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning structured and clear!`
+**STEP 2 - HAND PRESENCE CHECK (BE STRICT):**
+- CRITICAL: Only proceed if you can see ACTUAL HANDS (with visible fingers) touching or resting on the piano keys
+- Look for: Human hands with visible fingers on the keyboard
+- If you see NO hands, or only part of an arm, or hands not on keyboard: Say "I'm waiting to see your hands placed on the keyboard. Please put both hands on the piano keys." Then add: [STATUS:checking_hands]
+- ONLY if you clearly see hands (with fingers) on the piano keyboard: Say "Good! I can see your hands on the keyboard. Let me check your hand position carefully..." Then add: [STATUS:checking_hand_position]
+- When in doubt, assume hands are NOT properly visible
+
+**STEP 3 - HAND POSITION VERIFICATION (BE EXTREMELY STRICT):**
+- CRITICAL: Only one hand should be visible and evaluated (either left or right).
+- You need to clearly see **exactly 5 fingers** on that one hand, each placed on separate piano keys.
+- Count the fingers individually: 1, 2, 3, 4, 5 — each must rest on a distinct white key.
+- If you see fewer than 5 fingers, say exactly how many you see (e.g., "I can only see 3 fingers. Please spread all 5 fingers on separate keys."), then add: [STATUS:checking_hand_position]
+- If fingers are touching, overlapping, or in a fist: say "Your fingers need to be spread out with each finger on its own key. Please separate them.", then add: [STATUS:checking_hand_position]
+- ONLY if you can clearly count all 5 fingers on one hand, each on a different key, respond:
+  "Excellent! Your hand position is perfect — I can see all 5 fingers properly placed. What song would you like to learn?" then add: [STATUS:waiting_song]
+- When in doubt, describe exactly what you see and ask the student to adjust.
+
+**STEP 4 - SONG TEACHING:**
+- Once student selects a song, begin teaching
+- When you start teaching, add: [STATUS:teaching]
+- Break songs into tiny steps (4-8 notes at a time)
+- Teach RIGHT HAND first, then LEFT HAND, then combine
+- Use clear descriptions: "Place your right thumb on Middle C, index on D..."
+- Watch video and provide specific feedback
+- Be encouraging and celebrate progress
+
+**CONTINUOUS MONITORING (BE STRICT):**
+During teaching, you'll be asked to check visibility every few seconds:
+- CRITICAL: Be honest. If the view is unclear, blurry, or you cannot distinctly see the keyboard or hands, speak up immediately
+- If you CAN clearly see keyboard (with visible black and white keys) AND hands (with visible fingers): Continue teaching and add: [STATUS:teaching]
+- If you CANNOT clearly see keyboard OR hands OR the image is blurry/unclear: Say "Hold on! I can't see [keyboard/hands/the image is blurry]. Please adjust your camera so I have a clear view." Then add: [STATUS:adjusting_position]
+- When position is fixed after adjustment: ONLY if you can now clearly see everything, say "Good! I can see everything clearly now. Let's continue..." Then add: [STATUS:teaching]
+
+**CRITICAL RULES FOR HONESTY:**
+- NEVER claim to see something you don't clearly see
+- If unsure, ALWAYS err on the side of saying you cannot see it
+- Be SPECIFIC about what's wrong: "I see a blurry image", "I see a table but no piano", "I see hands but no keyboard", etc.
+- ALWAYS count fingers out loud when checking hand position: "I count 3 fingers on the left, 5 on the right"
+- Quality teaching requires quality visibility - don't pretend to see things
+
+**CRITICAL RULES:**
+- ALWAYS end EVERY response with [STATUS:step_name]
+- Keep responses SHORT (1-3 sentences)
+- Give ONE instruction at a time
+- Be specific about what you see in the video
+- Celebrate small wins
+- When I ask you to analyze video, look at the current video frames being streamed to you
+
+Example responses:
+"Hello! I'm your AI piano tutor. I need to see your piano keyboard. Please adjust your camera so I can see the full keyboard. [STATUS:checking_keyboard]"
+
+"Perfect! I can see your piano keyboard. Now please place both hands on the keyboard in playing position. [STATUS:checking_hands]"
+
+"Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed. What song would you like to learn? [STATUS:waiting_song]"
+
+"Great choice! Let's start with the right hand. Place your thumb on Middle C - that's the white key just to the left of the two black keys in the middle of the keyboard. [STATUS:teaching]"
+
+Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY response!`
               }]
             }
           }
-        };
+        } as const;
         
         console.log('📤 Sending setup');
         ws.send(JSON.stringify(setupMessage));
@@ -231,20 +333,54 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
             });
 
             if (response.serverContent.turnComplete) {
-              console.log('✅ Turn complete, final text:', currentResponseRef.current);
+              const timestamp = new Date().toLocaleTimeString();
+              console.log(`\n${'='.repeat(80)}`);
+              console.log(`📥 [${timestamp}] GEMINI RESPONSE COMPLETE`);
+              console.log(`✅ Turn complete, final text: ${currentResponseRef.current}`);
+              console.log(`${'='.repeat(80)}\n`);
+              
               const finalText = currentResponseRef.current;
-
+              
               if (finalText) {
-                setMessages(prev => [...prev, {
-                  role: 'model',
-                  content: finalText,
-                  timestamp: new Date()
-                }]);
+                const statusMatch = finalText.match(/\[STATUS:(checking_keyboard|checking_hands|checking_hand_position|waiting_song|teaching|adjusting_position)\]/);
 
-                // Log AI response to Vectara
-                vectaraLoggerRef.current.logAIResponse(finalText);
+                let displayText = finalText;
+                let newStep = null;
+
+                if (statusMatch) {
+                  newStep = statusMatch[1];
+                  displayText = finalText.replace(/\[STATUS:[^\]]+\]/g, '').trim();
+
+                  console.log(`🎯 STATUS COMMAND DETECTED: ${newStep}`);
+                  console.log(`📍 Current step: ${lessonStep} → New step: ${newStep}`);
+
+                  // ✅ only update step and show message if it changed
+                  if (newStep !== lessonStep) {
+                    setLessonStep(newStep as any);
+                    setMessages(prev => [...prev, {
+                      role: 'model',
+                      content: displayText,
+                      timestamp: new Date()
+                    }]);
+
+                    // Log AI response to Vectara
+                    vectaraLoggerRef.current.logAIResponse(displayText);
+                  } else {
+                    console.log('🔁 Step unchanged — skipping message display');
+                  }
+                } else {
+                  // Fallback for responses without status commands
+                  setMessages(prev => [...prev, {
+                    role: 'model',
+                    content: finalText,
+                    timestamp: new Date()
+                  }]);
+
+                  // Log AI response to Vectara
+                  vectaraLoggerRef.current.logAIResponse(finalText);
+                }
               }
-
+              
               currentResponseRef.current = '';
               setCurrentResponse('');
               setIsProcessing(false);
@@ -296,23 +432,40 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
   };
 
   const captureVideoFrame = (): string | null => {
-    if (!videoRef.current || !canvasRef.current) return null;
+    if (!videoRef.current || !canvasRef.current) {
+      console.warn('⚠️ Video or canvas ref not available');
+      return null;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    if (video.readyState < 2) return null;
+    if (video.readyState < 2) {
+      console.warn('⚠️ Video not ready. ReadyState:', video.readyState);
+      return null;
+    }
 
     canvas.width = 640;
     canvas.height = 480;
     
     const context = canvas.getContext('2d');
-    if (!context) return null;
+    if (!context) {
+      console.warn('⚠️ Cannot get canvas context');
+      return null;
+    }
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     
     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-    return dataUrl.split(',')[1];
+    const base64Data = dataUrl.split(',')[1];
+    
+    if (!base64Data || base64Data.length < 100) {
+      console.error('❌ Invalid frame data - too short:', base64Data?.length);
+      return null;
+    }
+    
+    console.log('📸 Frame captured. bytes:', base64Data.length);
+    return base64Data;
   };
 
   const floatTo16BitPCM = (float32Array: Float32Array): Int16Array => {
@@ -410,11 +563,15 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
 
   const sendRealtimeFrame = () => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.warn('⚠️ WebSocket not ready. State:', wsRef.current?.readyState);
       return;
     }
 
     const frameData = captureVideoFrame();
-    if (!frameData) return;
+    if (!frameData) {
+      console.warn('⚠️ Failed to capture frame');
+      return;
+    }
 
     setFrameCaptured(true);
     setTimeout(() => setFrameCaptured(false), 200);
@@ -428,9 +585,77 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
       }
     };
 
-    wsRef.current.send(JSON.stringify(message));
-    setFramesSent(prev => prev + 1);
-    setLastFrameTime(new Date().toLocaleTimeString());
+    try {
+      wsRef.current.send(JSON.stringify(message));
+      setFramesSent(prev => prev + 1);
+      setLastFrameTime(new Date().toLocaleTimeString());
+    } catch (error) {
+      console.error('❌ Error sending frame:', error);
+    }
+  };
+
+  const sendCheckInMessage = (step: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.warn('⚠️ Check-in skipped - WebSocket not ready');
+      return;
+    }
+
+    let promptText = '';
+    
+    switch(step) {
+      case 'checking_keyboard':
+        promptText = 'I just sent you video frames. First, confirm you are receiving video input from me. Then, describe in detail what you see in the most recent video frame. What objects, colors, or shapes do you see? Is there a piano keyboard with black and white keys? If you see a piano keyboard clearly, say "I can see a piano keyboard with black and white keys" and respond with [STATUS:checking_hands]. If you see something else or cannot see a piano, describe what you actually see and respond with [STATUS:checking_keyboard].';
+        break;
+      case 'checking_hands':
+        promptText = `
+Look at the current video frame carefully. 
+Count the fingers on the visible hand — you should see exactly 5 fingers, each on its own piano key. 
+If you see fewer than 5, say exactly how many and respond with [STATUS:checking_hand_position]. 
+If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:waiting_song].
+`;
+        break;
+      case 'checking_hand_position':
+        promptText = 'Examine the current video frame carefully. I need you to count fingers. Left hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Right hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Tell me the exact number for each hand. If you see 5 fingers on left and 5 on right, each on separate keys, respond with [STATUS:waiting_song]. Otherwise, tell me the exact count you see and respond with [STATUS:checking_hand_position].';
+        break;
+      case 'waiting_song':
+        console.log('⏸️ Check-in skipped - waiting for song selection');
+        return;
+      case 'teaching':
+        promptText = 'Quick HONEST visibility check of the current video: Describe what you see right now. Can you CLEARLY see the piano keyboard (black and white keys) AND the student\'s hands with visible fingers? Be HONEST - if the image is blurry, unclear, or you cannot see these things distinctly, say so immediately. If YES (both clearly visible with good clarity), continue teaching and respond with [STATUS:teaching]. If NO or image quality is poor, respond with [STATUS:adjusting_position] and explain what you cannot see.';
+        break;
+      case 'adjusting_position':
+        promptText = 'Check the current video carefully. Describe EXACTLY what you see. Can you now clearly see BOTH the piano keyboard (with visible black and white keys) AND the student\'s hands (with visible fingers)? Is the image clear and not blurry? Be HONEST. If YES (everything clearly visible now), respond with [STATUS:teaching]. If NO or STILL unclear, respond with [STATUS:adjusting_position] and tell me specifically what\'s still wrong.';
+        break;
+    }
+
+    if (promptText) {
+      void checkInWithFreshFrame(promptText);
+    }
+  };
+
+  const checkInWithFreshFrame = async (promptText: string) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    if (USE_ACTIVITY_WINDOWS) {
+      // Explicit batch window for frames
+      wsRef.current!.send(JSON.stringify({ realtimeInput: { activityStart: {} } }));
+      sendRealtimeFrame();
+      await sleep(30);
+      sendRealtimeFrame();
+      wsRef.current!.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }));
+      await sleep(80); // give the server a moment to bind
+    } else {
+      // Simple timing cushion
+      sendRealtimeFrame();
+      await sleep(120);
+    }
+
+    wsRef.current!.send(JSON.stringify({
+      clientContent: {
+        turns: [{ role: 'user', parts: [{ text: promptText }]}],
+        turnComplete: true
+      }
+    }));
   };
 
   const startStreaming = async () => {
@@ -458,17 +683,18 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
 
       setIsStreaming(true);
       setFramesSent(0);
+      setLessonStep('checking_keyboard');
       
       // Initialize session timing
       const now = new Date();
       setSessionStartTime(now);
       setSessionDuration(0);
 
+      setStatusMessage('🎹 Piano lesson started - I can see your hands and hear you play!');
+      
       // Start audio capture
       setTimeout(() => startAudioCapture(), 500);
 
-      setStatusMessage('🎹 Piano lesson started - I can see your hands and hear you play!');
-      
       // Send initial greeting
       setTimeout(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -491,10 +717,17 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
         }
       }, 1000);
 
-      // Start sending frames at intervals
+      console.log(`🎬 Starting frame capture: ${streamInterval}ms`);
       frameIntervalRef.current = setInterval(() => {
         sendRealtimeFrame();
       }, streamInterval);
+
+      console.log('🔄 Starting check-in interval: 10000ms');
+      checkInIntervalRef.current = setInterval(() => {
+        const currentStep = lessonStepRef.current;
+        console.log('⏰ Check-in triggered - step:', currentStep);
+        sendCheckInMessage(currentStep);
+      }, 10000);
 
     } catch (error) {
       console.error('❌ Error starting stream:', error);
@@ -503,9 +736,16 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
   };
 
   const stopStreaming = () => {
+    console.log('🛑 Stopping streaming...');
+    
     if (frameIntervalRef.current) {
       clearInterval(frameIntervalRef.current);
       frameIntervalRef.current = null;
+    }
+
+    if (checkInIntervalRef.current) {
+      clearInterval(checkInIntervalRef.current);
+      checkInIntervalRef.current = null;
     }
 
     stopAudioCapture();
@@ -522,7 +762,18 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
     setIsStreaming(false);
     setLastFrameTime('');
     setFramesSent(0);
+    setLessonStep('idle');
     setStatusMessage(isConnected ? 'Connected - Ready to teach!' : 'Not connected');
+
+    // Call session end callback if provided
+    if (onEndSession) {
+      onEndSession({
+        duration: sessionDuration,
+        accuracy: 0, // Will be provided by agent
+        notesPlayed: 0, // Will be provided by agent
+        mistakes: [] // Will be provided by agent
+      });
+    }
   };
 
   const sendMessage = (text: string) => {
@@ -541,13 +792,11 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
       clientContent: {
         turns: [{
           role: 'user',
-          parts: [{
-            text: text
-          }]
+          parts: [{ text }]
         }],
         turnComplete: true
       }
-    };
+    } as const;
 
     console.log('📤 Sending message:', text);
     wsRef.current.send(JSON.stringify(message));
@@ -565,7 +814,6 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
   const quickSongRequest = (song: string) => {
     sendMessage(`I want to learn how to play "${song}" on piano. Please teach me step by step.`);
   };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
@@ -604,7 +852,15 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
           {isStreaming && (
             <div className="mt-3 pt-3 border-t border-white/10">
               <p className="text-sm text-slate-300">
-                👀 Watching: {framesSent} frames
+                👀 Watching: {framesSent} frames | Step: {
+                  lessonStep === 'checking_keyboard' ? '🎹 Keyboard Check' : 
+                  lessonStep === 'checking_hands' ? '👐 Hand Check' : 
+                  lessonStep === 'checking_hand_position' ? '✋ Position Check' :
+                  lessonStep === 'waiting_song' ? '🎵 Song Select' : 
+                  lessonStep === 'teaching' ? '📚 Teaching' : 
+                  lessonStep === 'adjusting_position' ? '⚠️ Adjusting' :
+                  'Idle'
+                }
               </p>
             </div>
           )}
@@ -621,6 +877,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                   <li>• Position camera ABOVE the piano</li>
                   <li>• Show the FULL keyboard in view</li>
                   <li>• Make sure BOTH HANDS are visible</li>
+                  <li>• <strong>All 10 fingers should be clearly visible</strong></li>
                   <li>• Good lighting on the keys</li>
                 </ul>
               </div>
@@ -628,9 +885,10 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                 <p className="font-medium mb-2">For Best Results:</p>
                 <ul className="space-y-1 text-xs">
                   <li>• Place phone/webcam on a stand</li>
-                  <li>• Angle slightly downward</li>
+                  <li>• Angle slightly downward at 45°</li>
                   <li>• Ensure microphone can hear piano clearly</li>
                   <li>• Quiet environment (minimal background noise)</li>
+                  <li>• <strong>Each finger should be visible on its key</strong></li>
                 </ul>
               </div>
             </div>
@@ -687,9 +945,13 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
               {isStreaming && (
                 <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full shadow-lg bg-blue-600">
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full shadow-lg ${
+                      lessonStep === 'adjusting_position' ? 'bg-orange-600 animate-pulse' : 'bg-blue-600'
+                    }`}>
                       <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-                      <span className="text-white text-sm font-bold">TEACHING</span>
+                      <span className="text-white text-sm font-bold">
+                        {lessonStep === 'adjusting_position' ? '⚠️ ADJUST' : 'TEACHING'}
+                      </span>
                     </div>
                     
                     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
@@ -722,18 +984,7 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
             {/* Controls */}
             <div className="space-y-3">
               <button
-                onClick={isStreaming ? () => {
-                  stopStreaming();
-                  if (onEndSession) {
-                    // Only pass the real session duration - agent will provide other data
-                    onEndSession({
-                      duration: sessionDuration,
-                      accuracy: 0, // Will be provided by agent
-                      notesPlayed: 0, // Will be provided by agent
-                      mistakes: [] // Will be provided by agent
-                    });
-                  }
-                } : startStreaming}
+                onClick={isStreaming ? stopStreaming : startStreaming}
                 disabled={!isConnected}
                 className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-lg font-medium transition-all text-lg ${
                   isStreaming
@@ -754,35 +1005,35 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
                 )}
               </button>
 
-              {isStreaming && (
+              {isStreaming && lessonStep === 'waiting_song' && (
                 <div className="space-y-2">
                   <p className="text-white text-sm font-medium">Quick Song Requests:</p>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => quickSongRequest("Twinkle Twinkle Little Star")}
                       disabled={isProcessing}
-                        className="px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                      className="px-4 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       ⭐ Twinkle Twinkle
                     </button>
                     <button
                       onClick={() => quickSongRequest("Happy Birthday")}
                       disabled={isProcessing}
-                        className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                      className="px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       🎂 Happy Birthday
                     </button>
                     <button
                       onClick={() => quickSongRequest("Mary Had a Little Lamb")}
                       disabled={isProcessing}
-                        className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                      className="px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       🐑 Mary's Lamb
                     </button>
                     <button
                       onClick={() => quickSongRequest("Jingle Bells")}
                       disabled={isProcessing}
-                        className="px-4 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
+                      className="px-4 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg text-sm font-medium transition-all disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed"
                     >
                       🔔 Jingle Bells
                     </button>
@@ -874,6 +1125,30 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
           </div>
         </div>
 
+        {/* Debug Info */}
+        {isStreaming && (
+          <div className="mt-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+            <p className="text-yellow-200 text-sm font-medium mb-2">🔍 Debug Info (F12 Console for details):</p>
+            <div className="grid grid-cols-4 gap-4 text-xs text-yellow-200/80">
+              <div>
+                <strong>WebSocket:</strong> {wsRef.current?.readyState === WebSocket.OPEN ? '✅ Open' : '❌ Not Open'}
+              </div>
+              <div>
+                <strong>Video Ready:</strong> {videoRef.current?.readyState === 4 ? '✅ Ready' : '⏳ Loading'}
+              </div>
+              <div>
+                <strong>Frame Interval:</strong> {frameIntervalRef.current ? '✅ Running' : '❌ Not Running'}
+              </div>
+              <div>
+                <strong>Check-in Interval:</strong> {checkInIntervalRef.current ? '✅ Running' : '❌ Not Running'}
+              </div>
+            </div>
+            <p className="text-yellow-200/60 text-xs mt-2">
+              Frames: Every {streamInterval/1000}s | Check-ins: Every 10s | Total sent: {framesSent}
+            </p>
+          </div>
+        )}
+
         {/* Instructions */}
         <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
           <h3 className="text-xl font-semibold text-white mb-3">🎹 How Your AI Piano Tutor Works:</h3>
@@ -908,21 +1183,48 @@ You are PATIENT, STRICT about correctness, but ENCOURAGING. Make learning struct
           </div>
           
           <div className="p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg">
-            <p className="text-green-200 text-sm mb-2">
-              <strong>💡 Example Teaching Process:</strong>
+            <p className="text-green-200 text-sm mb-3">
+              <strong>💡 How It Works - Automatic 4-Step Workflow:</strong>
             </p>
-            <p className="text-green-200/80 text-xs mb-2">
-              <strong>You:</strong> "I want to learn Twinkle Twinkle Little Star"
-            </p>
-            <p className="text-green-200/80 text-xs mb-2">
-              <strong>AI Tutor:</strong> "Great choice! Let's start with just the first 4 notes, RIGHT HAND ONLY. Put your right thumb on Middle C. Now play: C - C - G - G. That's 'Twin-kle twin-kle'. Try it!"
-            </p>
-            <p className="text-green-200/80 text-xs mb-2">
-              <strong>[You play the notes]</strong>
-            </p>
-            <p className="text-green-200/80 text-xs">
-              <strong>AI Tutor:</strong> "Perfect! I heard C-C-G-G correctly. Now let's add the next notes..."
-            </p>
+            
+            <div className="space-y-2 text-green-200/80 text-xs">
+              <div className="p-3 bg-black/20 rounded-lg">
+                <p className="font-semibold text-green-300 mb-1">Step 1 - Keyboard Detection 🎹</p>
+                <p>AI analyzes video stream → If keyboard visible: "Perfect! I can see the keyboard" [moves to Step 2]</p>
+                <p>If not visible: Asks you to adjust camera position</p>
+              </div>
+
+              <div className="p-3 bg-black/20 rounded-lg">
+                <p className="font-semibold text-green-300 mb-1">Step 2 - Hand Presence 👐</p>
+                <p>AI watches for hands → When detected: "Good! I can see your hands" [moves to Step 3]</p>
+                <p>Prompts: "Please place both hands on the keyboard"</p>
+              </div>
+
+              <div className="p-3 bg-black/20 rounded-lg">
+                <p className="font-semibold text-green-300 mb-1">Step 3 - Hand Position Verification ✋</p>
+                <p>AI carefully counts fingers on BOTH hands (must see all 10 fingers, each on a key)</p>
+                <p>If correct: "Excellent! Perfect hand position!" [moves to Step 4]</p>
+                <p>If incorrect: Guides you to adjust finger placement</p>
+              </div>
+
+              <div className="p-3 bg-black/20 rounded-lg">
+                <p className="font-semibold text-green-300 mb-1">Step 4 - Song Teaching 🎵</p>
+                <p>You select a song → AI begins step-by-step teaching</p>
+                <p>Teaches right hand first, then left hand, then both together</p>
+                <p>Gives specific visual feedback based on what it sees in the video</p>
+              </div>
+
+              <div className="p-3 bg-black/20 rounded-lg border-2 border-blue-400">
+                <p className="font-semibold text-blue-300 mb-1">🔄 Continuous Monitoring (During Teaching)</p>
+                <p>Every 10 seconds: AI checks if it can still see keyboard + hands clearly</p>
+                <p>If visibility is lost: Pauses lesson and asks you to adjust camera</p>
+                <p>Once fixed: Resumes teaching automatically</p>
+              </div>
+            </div>
+
+            <div className="mt-3 text-center text-green-200/60 text-xs italic">
+              Just start the lesson and follow the AI tutor's instructions! 🎼
+            </div>
           </div>
         </div>
       </div>
