@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Square, Loader2, Music } from 'lucide-react';
+import { Square, Loader2, Music, RefreshCcw } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'model';
@@ -32,6 +32,8 @@ const PianoTutor: React.FC = () => {
   const checkInIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentResponseRef = useRef<string>('');
   const lessonStepRef = useRef<string>('idle');
+  const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -441,16 +443,7 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, frameRate: 30 },
-        audio: false
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        (videoRef.current as any).srcObject = stream;
-      }
+    await openCameraStream(cameraFacing);   // ⬅️ use helper
 
       setIsStreaming(true);
       setFramesSent(0);
@@ -572,6 +565,56 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
     sendMessage(`I want to learn "${song}". Please teach me step by step and include [STATUS:teaching] in your response.`);
   };
 
+  // Build constraints for getUserMedia using facing or deviceId
+const buildVideoConstraints = (facing: 'user' | 'environment'): MediaStreamConstraints['video'] => {
+  if (selectedDeviceId) {
+    return { deviceId: { exact: selectedDeviceId }, width: 1280, height: 720, frameRate: 30 } as any;
+  }
+  // Use facingMode hint (most phones honor this)
+  return { facingMode: { ideal: facing }, width: 1280, height: 720, frameRate: 30 } as any;
+};
+
+const openCameraStream = async (facing: 'user' | 'environment') => {
+  // Stop any existing stream
+  if (streamRef.current) {
+    streamRef.current.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+  }
+
+  const constraints: MediaStreamConstraints = {
+    video: buildVideoConstraints(facing),
+    audio: false
+  };
+
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+  // Remember the actual device used (helps flipping reliably next time)
+  try {
+    const track = stream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    if (settings.deviceId) setSelectedDeviceId(settings.deviceId);
+  } catch {}
+
+  streamRef.current = stream;
+  if (videoRef.current) {
+    (videoRef.current as any).srcObject = stream;
+  }
+};
+
+const toggleCameraFacing = async () => {
+  const next = cameraFacing === 'user' ? 'environment' : 'user';
+  setCameraFacing(next);
+  try {
+    await openCameraStream(next);
+  } catch (e) {
+    console.error('Flip camera failed, retrying without device lock', e);
+    // Retry without binding to prior deviceId
+    setSelectedDeviceId(null);
+    try { await openCameraStream(next); } catch (err) { console.error('❌ Flip failed', err); }
+  }
+};
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -680,7 +723,19 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
-            <h2 className="text-2xl font-semibold text-white mb-4">🎹 Piano View</h2>
+            <h2 className="text-2xl font-semibold text-white mb-4 flex items-center justify-between">
+  <span>🎹 Piano View</span>
+  <button
+    onClick={toggleCameraFacing}
+    disabled={!isConnected}
+    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/10 hover:bg-white/20 text-white border border-white/20"
+    title="Flip camera (front/rear)"
+  >
+    <RefreshCcw className="w-4 h-4" />
+    Flip Camera
+  </button>
+</h2>
+
 
             <div className="relative bg-black rounded-xl overflow-hidden aspect-video mb-4 shadow-lg">
               <video
