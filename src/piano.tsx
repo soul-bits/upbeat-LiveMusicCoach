@@ -63,8 +63,8 @@ const MusicInstructor: React.FC<MusicInstructorProps> = ({ onEndSession, onProgr
   const [detectedNotes, setDetectedNotes] = useState<DetectedNote[]>([]);
   const [isNoteDetectionActive, setIsNoteDetectionActive] = useState(false);
 
-  // Camera flip state
-  const [isCameraFlipped, setIsCameraFlipped] = useState(false);
+  // Camera state - default to back camera (environment)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -754,7 +754,12 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 1280, height: 720, frameRate: 30 },
+        video: {
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+          facingMode: facingMode  // Use current facing mode
+        },
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
@@ -893,9 +898,105 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     }
   };
 
+  const switchCamera = async () => {
+    if (!isStreaming) return;
+
+    console.log('🔄 Switching camera...');
+
+    // Stop current stream
+    stopAudioCapture();
+
+    // Stop note detector
+    if (noteDetectorRef.current) {
+      noteDetectorRef.current.stopDetection();
+      noteDetectorRef.current.destroy();
+      noteDetectorRef.current = null;
+      setIsNoteDetectionActive(false);
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    // Toggle facing mode
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+
+    try {
+      // Start new stream with new camera
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: 1280,
+          height: 720,
+          frameRate: 30,
+          facingMode: newFacingMode
+        },
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 44100
+        }
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
+      // Reinitialize note detector with new stream
+      try {
+        const detector = createNoteDetector({
+          dataSize: 2048,
+          sampleRate: 44100,
+          windowType: 'hamming',
+          closeThreshold: 0.05,
+          trackLoneMs: 100,
+          trackConsMs: 50,
+          detrackMinVolume: 0.005,
+          detrackEstNoneMs: 500,
+          detrackEstSomeMs: 250,
+          stableNoteMs: 50
+        });
+
+        await detector.initialize();
+        detector.connectAudioSource(stream);
+
+        detector.setOnNoteDetected((note: DetectedNote) => {
+          setCurrentNote(note);
+          setDetectedNotes(prev => [...prev.slice(-19), note]);
+
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && note.stable) {
+            const noteMessage = `[NOTE_DETECTED] ${note.note}${note.octave} (${note.frequency.toFixed(1)}Hz, confidence: ${note.confidence.toFixed(2)})`;
+            console.log('🎵', noteMessage);
+          }
+        });
+
+        detector.startDetection();
+        noteDetectorRef.current = detector;
+        setIsNoteDetectionActive(true);
+        console.log('✅ Note detector reinitialized with new camera');
+      } catch (error) {
+        console.error('❌ Failed to reinitialize note detector:', error);
+      }
+
+      // Restart audio capture if in teaching mode
+      if (lessonStep === 'waiting_song' || lessonStep === 'teaching') {
+        setTimeout(() => startAudioCapture(), 500);
+      }
+
+      console.log(`✅ Switched to ${newFacingMode} camera`);
+    } catch (error) {
+      console.error('❌ Error switching camera:', error);
+      setStatusMessage('Failed to switch camera - Make sure both cameras are available');
+    }
+  };
+
   const stopStreaming = async () => {
     console.log('🛑 Stopping streaming...');
-    
+
     // Trigger loading page immediately
     if (onStartEndSession) {
       onStartEndSession();
@@ -1312,10 +1413,6 @@ Please provide a 2-3 paragraph summary that includes:
                 muted
                 playsInline
                 className="w-full h-full object-cover"
-                style={{
-                  transform: isCameraFlipped ? 'scaleX(-1)' : 'scaleX(1)',
-                  transition: 'transform 0.3s ease-in-out'
-                }}
               />
               <canvas ref={canvasRef} className="hidden" />
 
@@ -1372,12 +1469,12 @@ Please provide a 2-3 paragraph summary that includes:
                 </div>
               )}
 
-              {/* Camera Flip Button */}
+              {/* Camera Switch Button */}
               {isStreaming && (
                 <button
-                  onClick={() => setIsCameraFlipped(!isCameraFlipped)}
+                  onClick={switchCamera}
                   className="absolute bottom-4 right-4 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur flex items-center justify-center shadow-lg border-2 border-white/30 hover:border-cyan-400 transition-all duration-300 group"
-                  title="Flip camera horizontally"
+                  title={`Switch to ${facingMode === 'user' ? 'back' : 'front'} camera`}
                 >
                   <FlipHorizontal className="w-5 h-5 text-white group-hover:text-cyan-400 transition-colors" />
                 </button>
