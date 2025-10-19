@@ -94,22 +94,39 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
             </div>
           </motion.div>
 
-          {/* Avatar Selection Carousel */}
+          {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-center mb-8"
           >
-            <Card className="p-6 sm:p-8 lg:p-12 bg-white/95 backdrop-blur-xl border-white/30 shadow-2xl">
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-gray-800 mb-3">Meet Your AI Tutors</h2>
-                <p className="text-gray-600 text-lg">
-                  Swipe through to explore each tutor's unique teaching style
-                </p>
+            <h2 className="text-4xl font-bold text-white mb-4">Meet Your AI Tutors</h2>
+            <p className="text-slate-300 text-lg">
+              Swipe through to explore each tutor's unique teaching style
+            </p>
+          </motion.div>
+
+          {/* Avatar Selection Carousel */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <Card className="p-6 sm:p-8 lg:p-12 bg-white/70 backdrop-blur-xl border-white/30 shadow-2xl relative overflow-hidden drop-shadow-2xl">
+              {/* Blurred Background Avatar */}
+              <div className="absolute inset-0 opacity-100 drop-shadow-2xl">
+                <div 
+                  className="w-full h-full bg-cover bg-top blur-lg bg-gradient-to-br from-teal-200 to-cyan-300 drop-shadow-2xl"
+                  style={{
+                    backgroundImage: `url(${avatarData[currentIndex].avatar_url})`
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/20 to-white/30 drop-shadow-2xl"></div>
               </div>
 
               {/* Main Avatar Display */}
-              <div className="relative mb-8">
+              <div className="relative mb-8 z-10 drop-shadow-2xl">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={currentIndex}
@@ -150,9 +167,9 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
 
                     {/* Tutor Information */}
                     <div className="max-w-md mx-auto">
-                      <h3 className="text-3xl font-bold text-gray-800 mb-3">
-                        {avatarData[currentIndex].name}
-                      </h3>
+                       <h3 className="text-3xl font-bold text-white mb-3 drop-shadow-2xl">
+                         {avatarData[currentIndex].name}
+                       </h3>
                       
                       <div className="mb-6">
                         <Badge 
@@ -215,7 +232,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
               </div>
 
               {/* Thumbnail Navigation */}
-              <div className="flex justify-center space-x-4 mb-6">
+              <div className="flex justify-center space-x-4 mb-6 relative z-10">
                 {avatarData.map((avatar, index) => (
                   <motion.button
                     key={avatar.id}
@@ -243,7 +260,7 @@ export function SetupPage({ onComplete, onBack }: SetupPageProps) {
               </div>
 
               {/* Progress Dots */}
-              <div className="flex justify-center space-x-2">
+              <div className="flex justify-center space-x-2 relative z-10">
                 {avatarData.map((_, index) => (
                   <button
                     key={index}
