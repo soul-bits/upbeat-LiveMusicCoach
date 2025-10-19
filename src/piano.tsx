@@ -54,6 +54,7 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Piano Tutor'));
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   // === Simple de-dupe: skip identical model messages ===
 const lastDisplayedHashRef = useRef<string>('');
     // tiny hash for de-duping message bodies
@@ -118,6 +119,13 @@ const lastDisplayedHashRef = useRef<string>('');
     console.log(`📍 Lesson step changed to: ${lessonStep}`);
   }, [lessonStep]);
 
+  // Auto-scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, currentResponse]);
+
   const connectToGemini = () => {
     if (!apiKey) {
       setStatusMessage('Please enter API key');
@@ -154,14 +162,9 @@ const lastDisplayedHashRef = useRef<string>('');
               responseModalities: ["TEXT"],
               temperature: 0.7
             },
-            // 🔧 Make grounding predictable: include *all* realtime input in turns
-            realtimeInputConfig: {
-              turnCoverage: "TURN_INCLUDES_ALL_INPUT",
-              ...(USE_ACTIVITY_WINDOWS ? { automaticActivityDetection: { disabled: true } } : {})
-            },
             systemInstruction: {
               parts: [{
-                text: `You are an expert piano instructor with years of teaching experience. You can see the piano keyboard and the student's hands in real-time through video, and you can hear what they play through audio.
+                text: `You are an expert piano instructor with years of teaching experience. You can see the piano keyboard and the student's hands in real-time through video.
 
 CRITICAL INSTRUCTION: BE EXTREMELY HONEST about what you see. NEVER claim to see something that is not clearly visible. If you're unsure, say you cannot see it clearly.
 
@@ -170,67 +173,11 @@ You MUST include a status command at the END of EVERY response using this EXACT 
 
 Available steps:
 - checking_keyboard
-- checking_hands  
+- checking_hands
 - checking_hand_position
 - waiting_song
 - teaching
 - adjusting_position
-
-**STAGE 1: KEYBOARD VERIFICATION**
-- When the lesson starts, look at the video feed
-- Verify you can see the piano keyboard clearly
-- Say: "Hello! I can see your piano keyboard. Now, please place both hands on the keyboard in the home position - right hand thumb on Middle C, left hand pinky on the C below Middle C. Curve your fingers like you're holding a ball."
-- WAIT for the student to position their hands
-- Once you see hands positioned, confirm: "Perfect! Your hands are in the right position. What song would you like to learn today?"
-
-**STAGE 2: SONG SELECTION**
-- WAIT for the student to tell you what song they want to learn
-- DO NOT suggest songs, let them choose
-- Once they choose, acknowledge it enthusiastically
-
-**STAGE 3: TEACHING THE SONG (ULTRA STRICT MODE)**
-When teaching ANY song, follow this EXACT pattern:
-
-For "Twinkle Twinkle Little Star":
-Full song notes: C-C-G-G-A-A-G | F-F-E-E-D-D-C | G-G-F-F-E-E-D | G-G-F-F-E-E-D | C-C-G-G-A-A-G | F-F-E-E-D-D-C
-
-Break it into TINY steps (2-4 notes at a time):
-
-Step 1: "Let's start! RIGHT HAND ONLY. Press these keys one at a time:
-• Middle C
-• Middle C again
-Now try it and I'll listen!"
-
-[WAIT - Listen for audio. If correct → proceed. If wrong → correct them specifically]
-
-Step 2: "Great! Now add two more notes:
-• G (the white key that's 5 keys to the right of Middle C)
-• G again
-So the full sequence: C - C - G - G
-Try all four notes now!"
-
-[WAIT - Listen. Correct any mistakes specifically: "I heard you play C-C-F-G, but the third note should be G, not F. Try again!"]
-
-Step 3: "Excellent! Now add:
-• A (next white key to the right of G)
-• A again
-• G (hold it a bit longer)
-Full sequence: C-C-G-G-A-A-G
-That's 'Twinkle twinkle little star'!"
-
-[Continue this pattern for the ENTIRE song, 2-4 notes at a time]
-
-**STAGE 4: ERROR CORRECTION**
-When student makes a mistake:
-- BE SPECIFIC: "I heard you play [what they played], but it should be [correct notes]"
-- TELL THEM EXACTLY: "The [first/second/third] note was [wrong note] - it should be [correct note]"
-- WAIT for them to try again
-- DO NOT move forward until they get it right
-- Be encouraging: "Almost there! Let's try that section one more time"
-
-**STAGE 5: COMPLETION**
-After student successfully plays the entire song:
-"🎉 Fantastic job! You just played [song name] all the way through! You practiced patiently, corrected your mistakes, and nailed it. I'm so proud of you! Keep practicing and you'll get even better. Great work today! 🎹"
 
 **STEP 1 - KEYBOARD VISIBILITY CHECK (BE STRICT):**
 - CRITICAL: Only proceed if you can CLEARLY see piano keys (black and white keys in a row)
@@ -247,14 +194,14 @@ After student successfully plays the entire song:
 - When in doubt, assume hands are NOT properly visible
 
 **STEP 3 - HAND POSITION VERIFICATION (BE EXTREMELY STRICT):**
-- CRITICAL: Only one hand should be visible and evaluated (either left or right).
-- You need to clearly see **exactly 5 fingers** on that one hand, each placed on separate piano keys.
-- Count the fingers individually: 1, 2, 3, 4, 5 — each must rest on a distinct white key.
-- If you see fewer than 5 fingers, say exactly how many you see (e.g., "I can only see 3 fingers. Please spread all 5 fingers on separate keys."), then add: [STATUS:checking_hand_position]
-- If fingers are touching, overlapping, or in a fist: say "Your fingers need to be spread out with each finger on its own key. Please separate them.", then add: [STATUS:checking_hand_position]
-- ONLY if you can clearly count all 5 fingers on one hand, each on a different key, respond:
-  "Excellent! Your hand position is perfect — I can see all 5 fingers properly placed. What song would you like to learn?" then add: [STATUS:waiting_song]
-- When in doubt, describe exactly what you see and ask the student to adjust.
+- CRITICAL: Count each finger individually. You need to see EXACTLY 10 fingers total.
+- Check LEFT HAND: Count 1, 2, 3, 4, 5 fingers each on a separate key
+- Check RIGHT HAND: Count 1, 2, 3, 4, 5 fingers each on a separate key
+- Each finger must be on its own key, not overlapping
+- If you count fewer than 5 fingers on either hand: Say exactly how many you see, e.g., "I can only see 3 fingers on your left hand and 4 on your right. Please spread all 5 fingers on each hand, each on a separate key." Then add: [STATUS:checking_hand_position]
+- If fingers are touching/overlapping or in a fist: Say "Your fingers need to be spread out with each finger on its own key. Please separate your fingers." Then add: [STATUS:checking_hand_position]
+- ONLY if you count exactly 5 fingers on left hand AND 5 fingers on right hand, each on separate keys: Say "Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed on the keys. What song would you like to learn? Use the buttons below!" Then add: [STATUS:waiting_song]
+- When in doubt, describe EXACTLY what you see and ask for adjustment
 
 **STEP 4 - SONG TEACHING:**
 - Once student selects a song, begin teaching
@@ -595,12 +542,13 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
     setFrameCaptured(true);
     setTimeout(() => setFrameCaptured(false), 200);
 
+    // Correct format according to Gemini Live API documentation
     const message = {
       realtimeInput: {
-        mediaChunks: [{
+        video: {
           mimeType: 'image/jpeg',
           data: frameData
-        }]
+        }
       }
     };
 
@@ -608,6 +556,7 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
       wsRef.current.send(JSON.stringify(message));
       setFramesSent(prev => prev + 1);
       setLastFrameTime(new Date().toLocaleTimeString());
+      console.log('📹 Frame sent successfully at', new Date().toLocaleTimeString(), '| Total frames:', framesSent + 1, '| Size:', frameData.length, 'bytes');
     } catch (error) {
       console.error('❌ Error sending frame:', error);
     }
@@ -620,18 +569,13 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
     }
 
     let promptText = '';
-    
+
     switch(step) {
       case 'checking_keyboard':
         promptText = 'I just sent you video frames. First, confirm you are receiving video input from me. Then, describe in detail what you see in the most recent video frame. What objects, colors, or shapes do you see? Is there a piano keyboard with black and white keys? If you see a piano keyboard clearly, say "I can see a piano keyboard with black and white keys" and respond with [STATUS:checking_hands]. If you see something else or cannot see a piano, describe what you actually see and respond with [STATUS:checking_keyboard].';
         break;
       case 'checking_hands':
-        promptText = `
-Look at the current video frame carefully. 
-Count the fingers on the visible hand — you should see exactly 5 fingers, each on its own piano key. 
-If you see fewer than 5, say exactly how many and respond with [STATUS:checking_hand_position]. 
-If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:waiting_song].
-`;
+        promptText = 'Look at the most recent video frame I sent. Describe what you see. Are there human hands visible in the frame? Are they touching the piano keyboard? If you see hands clearly on the keyboard, respond with [STATUS:checking_hand_position]. If not, describe what you see and respond with [STATUS:checking_hands].';
         break;
       case 'checking_hand_position':
         promptText = 'Examine the current video frame carefully. I need you to count fingers. Left hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Right hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Tell me the exact number for each hand. If you see 5 fingers on left and 5 on right, each on separate keys, respond with [STATUS:waiting_song]. Otherwise, tell me the exact count you see and respond with [STATUS:checking_hand_position].';
@@ -640,7 +584,19 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
         console.log('⏸️ Check-in skipped - waiting for song selection');
         return;
       case 'teaching':
-        promptText = 'Quick HONEST visibility check of the current video: Describe what you see right now. Can you CLEARLY see the piano keyboard (black and white keys) AND the student\'s hands with visible fingers? Be HONEST - if the image is blurry, unclear, or you cannot see these things distinctly, say so immediately. If YES (both clearly visible with good clarity), continue teaching and respond with [STATUS:teaching]. If NO or image quality is poor, respond with [STATUS:adjusting_position] and explain what you cannot see.';
+        promptText = `CRITICAL VISUAL CHECK during teaching:
+Look at the current video frame RIGHT NOW and describe EXACTLY what you see:
+
+1. HAND POSITION: Which keys are the student's fingers currently resting on or near?
+2. FINGER MOVEMENT: Do you see any finger pressing down on a key?
+3. SPECIFIC OBSERVATION: Describe the position - e.g., "I can see the right thumb on Middle C" or "I see the middle finger moving toward G"
+
+Based on what you see:
+- If the student's hand position matches your last instruction: Confirm it! Say "Perfect! I can see [specific observation]. Let's continue!" and give the NEXT instruction, then respond with [STATUS:teaching]
+- If the position is wrong: Say "I see [what you actually see], but you should have [correct position]. Please adjust." then respond with [STATUS:teaching]
+- If you can't see the keyboard or hands clearly: Respond with [STATUS:adjusting_position]
+
+Remember: You are ACTIVELY MONITORING their progress. Describe what you observe before giving the next instruction!`;
         break;
       case 'adjusting_position':
         promptText = 'Check the current video carefully. Describe EXACTLY what you see. Can you now clearly see BOTH the piano keyboard (with visible black and white keys) AND the student\'s hands (with visible fingers)? Is the image clear and not blurry? Be HONEST. If YES (everything clearly visible now), respond with [STATUS:teaching]. If NO or STILL unclear, respond with [STATUS:adjusting_position] and tell me specifically what\'s still wrong.';
@@ -648,34 +604,26 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
     }
 
     if (promptText) {
-      void checkInWithFreshFrame(promptText);
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`\n${'='.repeat(80)}`);
+      console.log(`📤 [${timestamp}] SENDING CHECK-IN PROMPT`);
+      console.log(`📍 Current Step: ${step}`);
+      console.log(`💬 Prompt: "${promptText}"`);
+      console.log(`${'='.repeat(80)}\n`);
+
+      const message = {
+        clientContent: {
+          turns: [{
+            role: 'user',
+            parts: [{ text: promptText }]
+          }],
+          turnComplete: true
+        }
+      };
+      wsRef.current.send(JSON.stringify(message));
     }
   };
 
-  const checkInWithFreshFrame = async (promptText: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-    if (USE_ACTIVITY_WINDOWS) {
-      // Explicit batch window for frames
-      wsRef.current!.send(JSON.stringify({ realtimeInput: { activityStart: {} } }));
-      sendRealtimeFrame();
-      await sleep(30);
-      sendRealtimeFrame();
-      wsRef.current!.send(JSON.stringify({ realtimeInput: { activityEnd: {} } }));
-      await sleep(80); // give the server a moment to bind
-    } else {
-      // Simple timing cushion
-      sendRealtimeFrame();
-      await sleep(120);
-    }
-
-    wsRef.current!.send(JSON.stringify({
-      clientContent: {
-        turns: [{ role: 'user', parts: [{ text: promptText }]}],
-        turnComplete: true
-      }
-    }));
-  };
 
   const startStreaming = async () => {
     if (!isConnected) {
@@ -686,7 +634,7 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 1280, height: 720, frameRate: 30 },
-        audio: { 
+        audio: {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
@@ -703,21 +651,22 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
       setIsStreaming(true);
       setFramesSent(0);
       setLessonStep('checking_keyboard');
-      
+
       // Initialize session timing
       const now = new Date();
       setSessionStartTime(now);
       setSessionDuration(0);
 
       setStatusMessage('🎹 Piano lesson started - I can see your hands and hear you play!');
-      
+
       // Start audio capture
       setTimeout(() => startAudioCapture(), 500);
 
       // Send initial greeting
       setTimeout(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const greetingText = 'Hello! I want to learn piano. Please introduce yourself and ask me what song I want to learn.';
+          console.log('📤 Sending initial greeting and waiting for more frames...');
+          const greetingText = 'Hello! I am your student. I am about to start streaming video frames to you. Please wait for the video input.';
           const message = {
             clientContent: {
               turns: [{
@@ -736,6 +685,29 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
         }
       }, 1000);
 
+      // Wait longer before asking about the video to ensure frames have accumulated
+      setTimeout(() => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          console.log('📤 Now asking about video content after frames have accumulated');
+          const askText = 'I have been sending you video frames for the past few seconds. Can you confirm you are receiving video input from me? Please describe what you see in the video frames. What objects or scenes are visible? Be very specific about what you observe. Then respond with [STATUS:checking_keyboard] or [STATUS:checking_hands] based on what you see.';
+          const message = {
+            clientContent: {
+              turns: [{
+                role: 'user',
+                parts: [{
+                  text: askText
+                }]
+              }],
+              turnComplete: true
+            }
+          };
+          wsRef.current.send(JSON.stringify(message));
+
+          // Log to Vectara
+          vectaraLoggerRef.current.logUserAction(askText);
+        }
+      }, 6000); // Wait 6 seconds to ensure multiple frames have been sent
+
       console.log(`🎬 Starting frame capture: ${streamInterval}ms`);
       frameIntervalRef.current = setInterval(() => {
         sendRealtimeFrame();
@@ -745,8 +717,14 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
       checkInIntervalRef.current = setInterval(() => {
         const currentStep = lessonStepRef.current;
         console.log('⏰ Check-in triggered - step:', currentStep);
+
+        // During teaching, check more frequently for visual verification
+        if (currentStep === 'teaching') {
+          console.log('📚 Teaching mode - performing visual verification check');
+        }
+
         sendCheckInMessage(currentStep);
-      }, 10000);
+      }, 10000); // Check every 10 seconds
 
     } catch (error) {
       console.error('❌ Error starting stream:', error);
@@ -1067,7 +1045,7 @@ If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:wa
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20 flex flex-col">
             <h2 className="text-2xl font-semibold text-white mb-4">💬 Lesson Chat</h2>
 
-            <div className="flex-1 bg-black/30 rounded-lg p-4 overflow-y-auto mb-4 space-y-3" style={{ maxHeight: '550px' }}>
+            <div ref={chatContainerRef} className="flex-1 bg-black/30 rounded-lg p-4 overflow-y-auto mb-4 space-y-3" style={{ maxHeight: '550px' }}>
               {messages.length === 0 && !currentResponse ? (
                 <div className="text-center py-16">
                   <Music className="w-16 h-16 text-blue-400/20 mx-auto mb-4" />
