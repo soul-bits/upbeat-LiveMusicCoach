@@ -3,13 +3,15 @@ import PianoTutor from './piano';
 import { SessionSummary, SessionSummaryType } from './SessionSummary';
 import { LandingPage } from './LandingPage';
 import { SetupPage, SetupConfig } from './SetupPage';
+import { AvatarProvider, useAvatar } from './AvatarContext';
 
 type AppPage = 'landing' | 'setup' | 'piano' | 'summary';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<AppPage>('landing');
   const [sessionData, setSessionData] = useState<SessionSummaryType | null>(null);
   const [setupConfig, setSetupConfig] = useState<SetupConfig | null>(null);
+  const { setSelectedAvatar } = useAvatar();
 
   // Mock session data - in a real app, this would come from the piano session
   const generateMockSessionData = (): SessionSummaryType => {
@@ -33,6 +35,7 @@ const App: React.FC = () => {
 
   const handleSetupComplete = (config: SetupConfig) => {
     setSetupConfig(config);
+    setSelectedAvatar(config.selectedAvatar);
     setCurrentPage('piano');
   };
 
@@ -83,6 +86,14 @@ const App: React.FC = () => {
 
   return (
     <PianoTutor onEndSession={handleEndSession} />
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AvatarProvider>
+      <AppContent />
+    </AvatarProvider>
   );
 };
 

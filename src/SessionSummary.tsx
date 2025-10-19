@@ -15,6 +15,8 @@ import {
 import { motion } from "motion/react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { AIChatBubble } from "./AIChatBubble";
+import { useAvatar } from './AvatarContext';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export interface SessionSummaryType {
   duration: number;
@@ -34,6 +36,7 @@ interface SessionSummaryProps {
 }
 
 export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionSummaryProps) {
+  const { selectedAvatar } = useAvatar();
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -92,15 +95,26 @@ export function SessionSummary({ summary, onBackToHome, onNewSession }: SessionS
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-4 border-2 border-white/30 backdrop-blur">
-            <Trophy className="w-10 h-10 text-yellow-400" />
+          <div className="flex items-center justify-center gap-4 mb-4">
+            {selectedAvatar && (
+              <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-yellow-400 shadow-xl">
+                <ImageWithFallback
+                  src={selectedAvatar.avatar_url}
+                  alt={selectedAvatar.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full border-2 border-white/30 backdrop-blur">
+              <Trophy className="w-10 h-10 text-yellow-400" />
+            </div>
           </div>
           <h1 className="text-6xl font-bold text-white mb-2 flex items-center justify-center gap-3">
             <Trophy className="w-12 h-12 text-yellow-400" />
             Session Complete!
           </h1>
           <p className="text-slate-300 text-lg">
-            Great work! Here's how you performed.
+            {selectedAvatar ? `${selectedAvatar.name} says: Great work! Here's how you performed.` : 'Great work! Here\'s how you performed.'}
           </p>
         </motion.div>
 

@@ -315,8 +315,8 @@ export function LandingPage({
             >
               <Card className="p-8 h-full bg-gradient-to-br from-slate-800/80 to-blue-900/80 backdrop-blur-xl border-white/10 hover:border-white/20 transition-all duration-300 hover:shadow-2xl group">
                 <div className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${feature.bgGradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                  <feature.icon className={`w-8 h-8 text-gradient-to-r ${feature.gradient} bg-gradient-to-r ${feature.gradient} bg-clip-text text-transparent`} />
-                </div>
+                <feature.icon className={`w-8 h-8 text-white`} />
+                                </div>
                 <h3 className="text-xl font-bold text-white mb-4 group-hover:text-cyan-400 transition-colors">
                   {feature.title}
                 </h3>

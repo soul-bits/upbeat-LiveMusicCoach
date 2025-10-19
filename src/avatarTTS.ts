@@ -1,4 +1,5 @@
-import { ElevenLabsClient, play } from '@elevenlabs/elevenlabs-js';
+/// <reference types="vite/client" />
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 
 interface Avatar {
   id: string;
@@ -91,7 +92,38 @@ Respond with only the converted text, no additional commentary.`;
         }
       );
 
-      await play(audio);
+      // Convert ReadableStream to Uint8Array, then to Blob for browser Audio API
+      const reader = audio.getReader();
+      const chunks: Uint8Array[] = [];
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      const audioData = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+      let offset = 0;
+      for (const chunk of chunks) {
+        audioData.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audioElement = new Audio(audioUrl);
+      
+      return new Promise((resolve, reject) => {
+        audioElement.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+        };
+        audioElement.onerror = (error) => {
+          URL.revokeObjectURL(audioUrl);
+          reject(error);
+        };
+        audioElement.play().catch(reject);
+      });
     } catch (error) {
       console.error('Error with Eleven Labs TTS:', error);
       throw error;

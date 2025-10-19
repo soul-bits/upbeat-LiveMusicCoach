@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Video, Square, Mic, Send, Loader2, Music } from 'lucide-react';
 import VectaraLogger from './vectaraLogger';
+import { useAvatar } from './AvatarContext';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface Message {
   role: 'user' | 'model';
@@ -26,6 +28,7 @@ const USE_ACTIVITY_WINDOWS = true; // ✅ recommended for reliable vision ground
 const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
 
 const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
+  const { selectedAvatar } = useAvatar();
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
@@ -164,7 +167,9 @@ const lastDisplayedHashRef = useRef<string>('');
             },
             systemInstruction: {
               parts: [{
-                text: `You are an expert piano instructor with years of teaching experience. You can see the piano keyboard and the student's hands in real-time through video.
+                text: `You are ${selectedAvatar?.name || 'an AI piano instructor'}, ${selectedAvatar?.personality || 'a patient and encouraging teacher'}. You can see the piano keyboard and the student's hands in real-time through video, and you can hear what they play through audio.
+
+${selectedAvatar?.system_prompt ? `PERSONALITY: ${selectedAvatar.system_prompt}` : ''}
 
 CRITICAL INSTRUCTION: BE EXTREMELY HONEST about what you see. NEVER claim to see something that is not clearly visible. If you're unsure, say you cannot see it clearly.
 
@@ -816,11 +821,24 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-6xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-            <Music className="w-12 h-12" />
-            AI Piano Tutor
-          </h1>
-          <p className="text-slate-300 text-lg">Making music education accessible to everyone, anywhere.</p>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            {selectedAvatar && (
+              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-cyan-400 shadow-xl">
+                <ImageWithFallback
+                  src={selectedAvatar.avatar_url}
+                  alt={selectedAvatar.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <h1 className="text-6xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+              <Music className="w-12 h-12" />
+              {selectedAvatar ? `Hello, I am ${selectedAvatar.name}` : 'AI Piano Tutor'}
+            </h1>
+          </div>
+          <p className="text-slate-300 text-lg">
+            {selectedAvatar ? selectedAvatar.quote : 'Making music education accessible to everyone, anywhere.'}
+          </p>
         </div>
 
         {/* Connection Status */}
