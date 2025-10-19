@@ -14,7 +14,7 @@ const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
 const PianoTutor: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [apiKey, setApiKey] = useState('');
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
   const [isConnected, setIsConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Not connected');
   const [currentResponse, setCurrentResponse] = useState('');
