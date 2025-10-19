@@ -1005,7 +1005,7 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
 
       const prompt = `${avatar.system_prompt}
 
-you're the instructor reflecting on the lesson. Please create a very concise summary of this piano lesson session.
+You're Professor Melody's assistant sharing the reflections of the lessons with the student. Please create a very concise summary of this piano lesson session.
 
 Conversation Log:
 ${conversationText}
