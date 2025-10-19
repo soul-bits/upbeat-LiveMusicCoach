@@ -23,10 +23,6 @@ interface PianoTutorProps {
   }) => void;
 }
 
-const USE_ACTIVITY_WINDOWS = true; // ✅ recommended for reliable vision grounding
-
-const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
-
 const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const { selectedAvatar } = useAvatar();
   const [isStreaming, setIsStreaming] = useState(false);
@@ -58,23 +54,22 @@ const PianoTutor: React.FC<PianoTutorProps> = ({ onEndSession }) => {
   const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const vectaraLoggerRef = useRef<VectaraLogger>(new VectaraLogger('Piano Tutor'));
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  // === Simple de-dupe: skip identical model messages ===
-const lastDisplayedHashRef = useRef<string>('');
-    // tiny hash for de-duping message bodies
-    const djb2 = (str: string) => {
+  
+  const lastDisplayedHashRef = useRef<string>('');
+  
+  const djb2 = (str: string) => {
     let h = 5381;
     for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
     return (h >>> 0).toString(36);
-    };
+  };
 
-    // normalize text for comparison (strip [STATUS:...] + compress whitespace)
-    const normalizeForHash = (s: string) =>
+  const normalizeForHash = (s: string) =>
     s.replace(/\[STATUS:[^\]]+\]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
   useEffect(() => {
     return () => {
-      // Clean up resources without triggering session end
       if (frameIntervalRef.current) {
         clearInterval(frameIntervalRef.current);
         frameIntervalRef.current = null;
@@ -97,12 +92,10 @@ const lastDisplayedHashRef = useRef<string>('');
       }
 
       disconnectWebSocket();
-      // Upload final session to Vectara on cleanup
       vectaraLoggerRef.current.uploadFullSession();
     };
   }, []);
 
-  // Session duration timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (sessionStartTime && isStreaming) {
@@ -120,9 +113,20 @@ const lastDisplayedHashRef = useRef<string>('');
   useEffect(() => {
     lessonStepRef.current = lessonStep;
     console.log(`📍 Lesson step changed to: ${lessonStep}`);
-  }, [lessonStep]);
+    
+    // Start audio capture when entering waiting_song or teaching stage
+    if ((lessonStep === 'waiting_song' || lessonStep === 'teaching') && isStreaming && !audioContextRef.current) {
+      console.log('🎤 Starting audio capture for voice input...');
+      setTimeout(() => startAudioCapture(), 500);
+    }
+    
+    // Stop audio when not in teaching stages
+    if (lessonStep !== 'waiting_song' && lessonStep !== 'teaching' && audioContextRef.current) {
+      console.log('🎤 Stopping audio capture - not in teaching stage');
+      stopAudioCapture();
+    }
+  }, [lessonStep, isStreaming]);
 
-  // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -205,7 +209,7 @@ Available steps:
 - Each finger must be on its own key, not overlapping
 - If you count fewer than 5 fingers on either hand: Say exactly how many you see, e.g., "I can only see 3 fingers on your left hand and 4 on your right. Please spread all 5 fingers on each hand, each on a separate key." Then add: [STATUS:checking_hand_position]
 - If fingers are touching/overlapping or in a fist: Say "Your fingers need to be spread out with each finger on its own key. Please separate your fingers." Then add: [STATUS:checking_hand_position]
-- ONLY if you count exactly 5 fingers on left hand AND 5 fingers on right hand, each on separate keys: Say "Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed on the keys. What song would you like to learn? Use the buttons below!" Then add: [STATUS:waiting_song]
+- ONLY if you count exactly 5 fingers on left hand AND 5 fingers on right hand, each on separate keys: Say "Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed on the keys. What song would you like to learn? Use the buttons below or speak the song name!" Then add: [STATUS:waiting_song]
 - When in doubt, describe EXACTLY what you see and ask for adjustment
 
 **STEP 4 - SONG TEACHING:**
@@ -238,15 +242,6 @@ During teaching, you'll be asked to check visibility every few seconds:
 - Be specific about what you see in the video
 - Celebrate small wins
 - When I ask you to analyze video, look at the current video frames being streamed to you
-
-Example responses:
-"Hello! I'm your AI piano tutor. I need to see your piano keyboard. Please adjust your camera so I can see the full keyboard. [STATUS:checking_keyboard]"
-
-"Perfect! I can see your piano keyboard. Now please place both hands on the keyboard in playing position. [STATUS:checking_hands]"
-
-"Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed. What song would you like to learn? [STATUS:waiting_song]"
-
-"Great choice! Let's start with the right hand. Place your thumb on Middle C - that's the white key just to the left of the two black keys in the middle of the keyboard. [STATUS:teaching]"
 
 Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY response!`
               }]
@@ -318,36 +313,31 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
 
                   console.log(`🎯 STATUS COMMAND DETECTED: ${newStep}`);
                   console.log(`📍 Current step: ${lessonStep} → New step: ${newStep}`);
-                    // Update step if provided
-                    if (newStep && newStep !== lessonStep) {
-                        setLessonStep(newStep as any);
-                    }
+                  
+                  if (newStep && newStep !== lessonStep) {
+                    setLessonStep(newStep as any);
+                  }
 
-                    // ✅ De-dupe: show only if text is new
-                    const normalized = normalizeForHash(displayText);
-                    const hash = djb2(normalized);
+                  const normalized = normalizeForHash(displayText);
+                  const hash = djb2(normalized);
 
-                    if (hash === lastDisplayedHashRef.current) {
+                  if (hash === lastDisplayedHashRef.current) {
                     console.log('🧽 Duplicate message (same text) — not displaying');
-                    } else {
+                  } else {
                     setMessages(prev => [...prev, {
-                        role: 'model',
-                        content: displayText,
-                        timestamp: new Date()
+                      role: 'model',
+                      content: displayText,
+                      timestamp: new Date()
                     }]);
-                                        // Log AI response to Vectara
                     vectaraLoggerRef.current.logAIResponse(displayText);
                     lastDisplayedHashRef.current = hash;
-                    }
+                  }
                 } else {
-                  // Fallback for responses without status commands
                   setMessages(prev => [...prev, {
                     role: 'model',
                     content: finalText,
                     timestamp: new Date()
                   }]);
-
-                  // Log AI response to Vectara
                   vectaraLoggerRef.current.logAIResponse(finalText);
                 }
               }
@@ -506,7 +496,7 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
       audioSource.connect(processor);
       processor.connect(audioContextRef.current.destination);
 
-      console.log('🎤 Audio capture started - listening to piano');
+      console.log('🎤 Audio capture started - listening for voice input');
     } catch (error) {
       console.error('❌ Failed to start audio capture:', error);
     }
@@ -547,7 +537,6 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
     setFrameCaptured(true);
     setTimeout(() => setFrameCaptured(false), 200);
 
-    // Correct format according to Gemini Live API documentation
     const message = {
       realtimeInput: {
         video: {
@@ -629,7 +618,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     }
   };
 
-
   const startStreaming = async () => {
     if (!isConnected) {
       setStatusMessage('Please connect to API first');
@@ -657,17 +645,12 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
       setFramesSent(0);
       setLessonStep('checking_keyboard');
 
-      // Initialize session timing
       const now = new Date();
       setSessionStartTime(now);
       setSessionDuration(0);
 
-      setStatusMessage('🎹 Piano lesson started - I can see your hands and hear you play!');
+      setStatusMessage('🎹 Piano lesson started - I can see your hands!');
 
-      // Start audio capture
-      setTimeout(() => startAudioCapture(), 500);
-
-      // Send initial greeting
       setTimeout(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           console.log('📤 Sending initial greeting and waiting for more frames...');
@@ -684,13 +667,10 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
             }
           };
           wsRef.current.send(JSON.stringify(message));
-
-          // Log to Vectara
           vectaraLoggerRef.current.logUserAction(greetingText);
         }
       }, 1000);
 
-      // Wait longer before asking about the video to ensure frames have accumulated
       setTimeout(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           console.log('📤 Now asking about video content after frames have accumulated');
@@ -707,11 +687,9 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
             }
           };
           wsRef.current.send(JSON.stringify(message));
-
-          // Log to Vectara
           vectaraLoggerRef.current.logUserAction(askText);
         }
-      }, 6000); // Wait 6 seconds to ensure multiple frames have been sent
+      }, 6000);
 
       console.log(`🎬 Starting frame capture: ${streamInterval}ms`);
       frameIntervalRef.current = setInterval(() => {
@@ -723,13 +701,12 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
         const currentStep = lessonStepRef.current;
         console.log('⏰ Check-in triggered - step:', currentStep);
 
-        // During teaching, check more frequently for visual verification
         if (currentStep === 'teaching') {
           console.log('📚 Teaching mode - performing visual verification check');
         }
 
         sendCheckInMessage(currentStep);
-      }, 10000); // Check every 10 seconds
+      }, 10000);
 
     } catch (error) {
       console.error('❌ Error starting stream:', error);
@@ -767,13 +744,12 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
     setLessonStep('idle');
     setStatusMessage(isConnected ? 'Connected - Ready to teach!' : 'Not connected');
 
-    // Call session end callback if provided
     if (onEndSession) {
       onEndSession({
         duration: sessionDuration,
-        accuracy: 0, // Will be provided by agent
-        notesPlayed: 0, // Will be provided by agent
-        mistakes: [] // Will be provided by agent
+        accuracy: 0,
+        notesPlayed: 0,
+        mistakes: []
       });
     }
   };
@@ -809,7 +785,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
       timestamp: new Date()
     }]);
 
-    // Log user action to Vectara
     vectaraLoggerRef.current.logUserAction(text);
   };
 
@@ -841,7 +816,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
           </p>
         </div>
 
-        {/* Connection Status */}
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-2xl border border-white/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -876,12 +850,12 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                   lessonStep === 'adjusting_position' ? '⚠️ Adjusting' :
                   'Idle'
                 }
+                {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && ' | 🎤 Audio Active'}
               </p>
             </div>
           )}
         </div>
 
-        {/* Setup Instructions */}
         {!isStreaming && isConnected && (
           <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-xl p-6 mb-6">
             <h3 className="text-yellow-200 font-semibold text-lg mb-3">🎹 Setup Your Camera:</h3>
@@ -901,16 +875,15 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                 <ul className="space-y-1 text-xs">
                   <li>• Place phone/webcam on a stand</li>
                   <li>• Angle slightly downward at 45°</li>
-                  <li>• Ensure microphone can hear piano clearly</li>
                   <li>• Quiet environment (minimal background noise)</li>
                   <li>• <strong>Each finger should be visible on its key</strong></li>
+                  <li>• Voice input enabled once setup complete</li>
                 </ul>
               </div>
             </div>
           </div>
         )}
 
-        {/* Stream Interval Control */}
         {!isStreaming && isConnected && (
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-6 shadow-2xl border border-white/20">
             <label className="block text-white text-sm font-medium mb-2">
@@ -932,7 +905,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Video Section */}
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
             <h2 className="text-2xl font-semibold text-white mb-4">🎹 Piano View</h2>
 
@@ -969,14 +941,16 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                       </span>
                     </div>
                     
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
-                      isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
-                    }`}>
-                      <Mic className="w-3 h-3 text-white" />
-                      <span className="text-white text-xs font-medium">
-                        {isListening ? 'HEARING NOTES' : 'LISTENING'}
-                      </span>
-                    </div>
+                    {(lessonStep === 'waiting_song' || lessonStep === 'teaching') && (
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full shadow-lg transition-all ${
+                        isListening ? 'bg-red-600 animate-pulse' : 'bg-gray-600'
+                      }`}>
+                        <Mic className="w-3 h-3 text-white" />
+                        <span className="text-white text-xs font-medium">
+                          {isListening ? 'HEARING YOU' : 'LISTENING'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                   {lastFrameTime && (
@@ -996,7 +970,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
               )}
             </div>
 
-            {/* Controls */}
             <div className="space-y-3">
               <button
                 onClick={isStreaming ? stopStreaming : startStreaming}
@@ -1059,7 +1032,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
             </div>
           </div>
 
-          {/* Chat Section */}
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20 flex flex-col">
             <h2 className="text-2xl font-semibold text-white mb-4">💬 Lesson Chat</h2>
 
@@ -1107,7 +1079,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
               )}
             </div>
 
-            {/* Input */}
             {isStreaming && (
               <div className="flex gap-2">
                 <input
@@ -1140,7 +1111,6 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
           </div>
         </div>
 
-        {/* Debug Info */}
         {isStreaming && (
           <div className="mt-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
             <p className="text-yellow-200 text-sm font-medium mb-2">🔍 Debug Info (F12 Console for details):</p>
@@ -1155,16 +1125,15 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                 <strong>Frame Interval:</strong> {frameIntervalRef.current ? '✅ Running' : '❌ Not Running'}
               </div>
               <div>
-                <strong>Check-in Interval:</strong> {checkInIntervalRef.current ? '✅ Running' : '❌ Not Running'}
+                <strong>Audio:</strong> {audioContextRef.current ? '✅ Active' : '❌ Inactive'}
               </div>
             </div>
             <p className="text-yellow-200/60 text-xs mt-2">
-              Frames: Every {streamInterval/1000}s | Check-ins: Every 10s | Total sent: {framesSent}
+              Frames: Every {streamInterval/1000}s | Check-ins: Every 10s | Total sent: {framesSent} | Audio: {(lessonStep === 'waiting_song' || lessonStep === 'teaching') ? 'ON' : 'OFF'}
             </p>
           </div>
         )}
 
-        {/* Instructions */}
         <div className="mt-6 bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
           <h3 className="text-xl font-semibold text-white mb-3">🎹 How Your AI Piano Tutor Works:</h3>
           <div className="grid md:grid-cols-3 gap-4 text-white/80 text-sm mb-4">
@@ -1178,12 +1147,12 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
               </ul>
             </div>
             <div className="bg-cyan-500/20 p-4 rounded-lg">
-              <p className="font-medium text-cyan-300 mb-2">🎵 Audio Feedback:</p>
+              <p className="font-medium text-cyan-300 mb-2">🎤 Voice Input:</p>
               <ul className="space-y-1 text-xs">
-                <li>• Hears the notes you play</li>
-                <li>• Confirms correct notes</li>
-                <li>• Detects mistakes</li>
-                <li>• Checks rhythm and timing</li>
+                <li>• Activates during song selection</li>
+                <li>• Speak the song name you want</li>
+                <li>• Hears your questions during teaching</li>
+                <li>• Natural conversation while learning</li>
               </ul>
             </div>
             <div className="bg-emerald-500/20 p-4 rounded-lg">
@@ -1192,53 +1161,42 @@ Remember: You are ACTIVELY MONITORING their progress. Describe what you observe 
                 <li>• Breaks songs into small parts</li>
                 <li>• Teaches one hand at a time</li>
                 <li>• Patient and encouraging</li>
-                <li>• Real-time corrections</li>
+                <li>• Real-time visual feedback</li>
               </ul>
             </div>
           </div>
           
           <div className="p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg">
             <p className="text-green-200 text-sm mb-3">
-              <strong>💡 How It Works - Automatic 4-Step Workflow:</strong>
+              <strong>💡 Automatic 4-Step Workflow:</strong>
             </p>
             
             <div className="space-y-2 text-green-200/80 text-xs">
               <div className="p-3 bg-black/20 rounded-lg">
                 <p className="font-semibold text-green-300 mb-1">Step 1 - Keyboard Detection 🎹</p>
-                <p>AI analyzes video stream → If keyboard visible: "Perfect! I can see the keyboard" [moves to Step 2]</p>
-                <p>If not visible: Asks you to adjust camera position</p>
+                <p>AI analyzes video → Confirms keyboard visible → Moves to hands check</p>
               </div>
 
               <div className="p-3 bg-black/20 rounded-lg">
                 <p className="font-semibold text-green-300 mb-1">Step 2 - Hand Presence 👐</p>
-                <p>AI watches for hands → When detected: "Good! I can see your hands" [moves to Step 3]</p>
-                <p>Prompts: "Please place both hands on the keyboard"</p>
+                <p>AI watches for hands → Detects hands on keyboard → Moves to position check</p>
               </div>
 
               <div className="p-3 bg-black/20 rounded-lg">
-                <p className="font-semibold text-green-300 mb-1">Step 3 - Hand Position Verification ✋</p>
-                <p>AI carefully counts fingers on BOTH hands (must see all 10 fingers, each on a key)</p>
-                <p>If correct: "Excellent! Perfect hand position!" [moves to Step 4]</p>
-                <p>If incorrect: Guides you to adjust finger placement</p>
+                <p className="font-semibold text-green-300 mb-1">Step 3 - Hand Position ✋</p>
+                <p>AI counts all 10 fingers → Verifies proper placement → Ready for song</p>
               </div>
 
-              <div className="p-3 bg-black/20 rounded-lg">
-                <p className="font-semibold text-green-300 mb-1">Step 4 - Song Teaching 🎵</p>
-                <p>You select a song → AI begins step-by-step teaching</p>
-                <p>Teaches right hand first, then left hand, then both together</p>
-                <p>Gives specific visual feedback based on what it sees in the video</p>
-              </div>
-
-              <div className="p-3 bg-black/20 rounded-lg border-2 border-blue-400">
-                <p className="font-semibold text-blue-300 mb-1">🔄 Continuous Monitoring (During Teaching)</p>
-                <p>Every 10 seconds: AI checks if it can still see keyboard + hands clearly</p>
-                <p>If visibility is lost: Pauses lesson and asks you to adjust camera</p>
-                <p>Once fixed: Resumes teaching automatically</p>
+              <div className="p-3 bg-black/20 rounded-lg border-2 border-cyan-400">
+                <p className="font-semibold text-cyan-300 mb-1">Step 4 - Song Teaching 🎵 (Audio Active!)</p>
+                <p><strong>🎤 Microphone activates here!</strong> You can speak the song name or use buttons</p>
+                <p>AI teaches step-by-step: Small chunks → Practice → Combine</p>
+                <p>Continuous visual monitoring with voice interaction</p>
               </div>
             </div>
 
             <div className="mt-3 text-center text-green-200/60 text-xs italic">
-              Just start the lesson and follow the AI tutor's instructions! 🎼
+              Audio streaming begins only when ready for teaching - saves API quota! 🎼
             </div>
           </div>
         </div>
