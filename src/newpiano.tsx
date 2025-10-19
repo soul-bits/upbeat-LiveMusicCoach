@@ -118,14 +118,14 @@ Available steps:
 - When in doubt, assume hands are NOT properly visible
 
 **STEP 3 - HAND POSITION VERIFICATION (BE EXTREMELY STRICT):**
-- CRITICAL: Count each finger individually. You need to see EXACTLY 10 fingers total.
-- Check LEFT HAND: Count 1, 2, 3, 4, 5 fingers each on a separate key
-- Check RIGHT HAND: Count 1, 2, 3, 4, 5 fingers each on a separate key
-- Each finger must be on its own key, not overlapping
-- If you count fewer than 5 fingers on either hand: Say exactly how many you see, e.g., "I can only see 3 fingers on your left hand and 4 on your right. Please spread all 5 fingers on each hand, each on a separate key." Then add: [STATUS:checking_hand_position]
-- If fingers are touching/overlapping or in a fist: Say "Your fingers need to be spread out with each finger on its own key. Please separate your fingers." Then add: [STATUS:checking_hand_position]
-- ONLY if you count exactly 5 fingers on left hand AND 5 fingers on right hand, each on separate keys: Say "Excellent! Your hand position is perfect - I can see all 5 fingers on each hand properly placed on the keys. What song would you like to learn? Use the buttons below!" Then add: [STATUS:waiting_song]
-- When in doubt, describe EXACTLY what you see and ask for adjustment
+- CRITICAL: Only one hand should be visible and evaluated (either left or right).
+- You need to clearly see **exactly 5 fingers** on that one hand, each placed on separate piano keys.
+- Count the fingers individually: 1, 2, 3, 4, 5 — each must rest on a distinct white key.
+- If you see fewer than 5 fingers, say exactly how many you see (e.g., “I can only see 3 fingers. Please spread all 5 fingers on separate keys.”), then add: [STATUS:checking_hand_position]
+- If fingers are touching, overlapping, or in a fist: say “Your fingers need to be spread out with each finger on its own key. Please separate them.”, then add: [STATUS:checking_hand_position]
+- ONLY if you can clearly count all 5 fingers on one hand, each on a different key, respond:
+  “Excellent! Your hand position is perfect — I can see all 5 fingers properly placed. What song would you like to learn?” then add: [STATUS:waiting_song]
+- When in doubt, describe exactly what you see and ask the student to adjust.
 
 **STEP 4 - SONG TEACHING:**
 - Once student selects a song, begin teaching
@@ -225,26 +225,33 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
               
               const finalText = currentResponseRef.current;
               
-              if (finalText) {
-                const statusMatch = finalText.match(/\[STATUS:(checking_keyboard|checking_hands|checking_hand_position|waiting_song|teaching|adjusting_position)\]/);
-                
-                let displayText = finalText;
-                let newStep: string | null = null;
-                
-                if (statusMatch) {
-                  newStep = statusMatch[1];
-                  displayText = finalText.replace(/\[STATUS:[^\]]+\]/g, '').trim();
-                  console.log(`🎯 STATUS COMMAND DETECTED: ${newStep}`);
-                  console.log(`📍 Current step: ${lessonStep} → New step: ${newStep}`);
-                  setLessonStep(newStep as any);
-                }
-                
+            if (finalText) {
+            const statusMatch = finalText.match(/\[STATUS:(checking_keyboard|checking_hands|checking_hand_position|waiting_song|teaching|adjusting_position)\]/);
+
+            let displayText = finalText;
+            let newStep = null;
+
+            if (statusMatch) {
+                newStep = statusMatch[1];
+                displayText = finalText.replace(/\[STATUS:[^\]]+\]/g, '').trim();
+
+                console.log(`🎯 STATUS COMMAND DETECTED: ${newStep}`);
+                console.log(`📍 Current step: ${lessonStep} → New step: ${newStep}`);
+
+                // ✅ only update step and show message if it changed
+                if (newStep !== lessonStep) {
+                setLessonStep(newStep as any);
                 setMessages(prev => [...prev, {
-                  role: 'model',
-                  content: displayText,
-                  timestamp: new Date()
+                    role: 'model',
+                    content: displayText,
+                    timestamp: new Date()
                 }]);
-              }
+                } else {
+                console.log('🔁 Step unchanged — skipping message display');
+                }
+            }
+            }
+
               
               currentResponseRef.current = '';
               setCurrentResponse('');
@@ -376,7 +383,12 @@ Remember: NEVER forget to include [STATUS:step_name] at the end of EVERY respons
         promptText = 'I just sent you video frames. First, confirm you are receiving video input from me. Then, describe in detail what you see in the most recent video frame. What objects, colors, or shapes do you see? Is there a piano keyboard with black and white keys? If you see a piano keyboard clearly, say "I can see a piano keyboard with black and white keys" and respond with [STATUS:checking_hands]. If you see something else or cannot see a piano, describe what you actually see and respond with [STATUS:checking_keyboard].';
         break;
       case 'checking_hands':
-        promptText = 'Look at the most recent video frame I sent. Describe what you see. Are there human hands visible in the frame? Are they touching the piano keyboard? If you see hands clearly on the keyboard, respond with [STATUS:checking_hand_position]. If not, describe what you see and respond with [STATUS:checking_hands].';
+        promptText = `
+Look at the current video frame carefully. 
+Count the fingers on the visible hand — you should see exactly 5 fingers, each on its own piano key. 
+If you see fewer than 5, say exactly how many and respond with [STATUS:checking_hand_position]. 
+If you see 5 fingers on one hand, each on separate keys, respond with [STATUS:waiting_song].
+`;
         break;
       case 'checking_hand_position':
         promptText = 'Examine the current video frame carefully. I need you to count fingers. Left hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Right hand - how many fingers can you see? (count: 1, 2, 3, 4, 5?). Tell me the exact number for each hand. If you see 5 fingers on left and 5 on right, each on separate keys, respond with [STATUS:waiting_song]. Otherwise, tell me the exact count you see and respond with [STATUS:checking_hand_position].';
